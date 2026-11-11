@@ -26,7 +26,10 @@
 .pl-hero-fall svg path{ fill: none; stroke: var(--ink); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .pl-hero-grad{ position: absolute; inset: 0;
   background: linear-gradient(to top, rgba(10,14,13,.86) 0%, rgba(10,14,13,.45) 42%, rgba(10,14,13,.08) 100%); }
-.pl-hero-in{ position: relative; width: 100%; padding: 26px 0 28px; color: #fff; }
+/* NO width:100% here — it would beat .wrap's own width and shove the
+   title flush against the screen edge on a wide monitor. .wrap gives
+   it a max width and the auto margins that centre it. */
+.pl-hero-in{ position: relative; padding: 26px 0 28px; color: #fff; }
 
 .pl-back{ display: inline-block; margin-bottom: 18px; color: rgba(255,255,255,.8);
   font: 500 13px/1 var(--mono); letter-spacing: .04em; text-decoration: none; }
@@ -100,7 +103,11 @@
 .pl-sec{ margin-top: 38px; }
 .pl-sec h2{ font: 500 13px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase;
   color: var(--muted); margin: 0 0 18px; padding-bottom: 12px; border-bottom: 1px solid var(--rule); }
-.pl-note{ font: 500 13px/1.5 var(--sans); color: var(--muted); margin: -8px 0 16px; }
+/* A note sits under whatever came before it. Only when it follows a
+   section heading does it tuck up closer — a negative margin applied
+   everywhere made it ride up over the cards above. */
+.pl-note{ font: 500 13px/1.5 var(--sans); color: var(--muted); margin: 14px 0 16px; }
+.pl-sec h2 + .pl-note{ margin-top: -8px; }
 
 .pl-things, .pl-food{ list-style: none; margin: 0; padding: 0; display: grid; gap: 1px;
   background: var(--rule); border: 1px solid var(--rule); border-radius: var(--r-m); overflow: hidden; }

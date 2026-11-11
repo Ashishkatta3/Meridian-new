@@ -82,3 +82,76 @@
   .hm-plan-in{ padding: 22px; }
   .hm-potw-tx{ padding: 24px; }
 }
+
+/* ===========================================================
+   THE OPENING
+
+   A photograph you land on, with the promise of the site over it
+   and a clear way down into the map. Falls back to a gradient when
+   there is no picture, so it never opens on a blank grey box.
+   =========================================================== */
+.hero2{
+  position: relative; display: flex; align-items: flex-end;
+  min-height: min(78vh, 680px); margin-bottom: 26px;
+  background: linear-gradient(150deg, #243029 0%, #38433a 45%, #6c6355 100%);
+  overflow: hidden;
+}
+.hero2-ph{
+  position: absolute; inset: 0; background-size: cover; background-position: center;
+  opacity: 0; transform: scale(1.04); transition: opacity 1s ease, transform 8s ease-out;
+}
+.hero2-ph.is-on{ opacity: 1; transform: scale(1); }
+.hero2-grad{
+  position: absolute; inset: 0;
+  background:
+    linear-gradient(to top, rgba(12,16,14,.92) 0%, rgba(12,16,14,.55) 45%, rgba(12,16,14,.25) 100%),
+    linear-gradient(to right, rgba(12,16,14,.6) 0%, rgba(12,16,14,0) 62%);
+}
+.hero2-in{ position: relative; padding: 64px 0 76px; color: #fff; }
+.hero2-in .lab{ color: rgba(255,255,255,.72); }
+.hero2-in h1{
+  font: 400 clamp(42px, 7.2vw, 86px)/1 var(--serif);
+  letter-spacing: -.015em; margin: 14px 0 0; max-width: 16ch;
+}
+.hero2-in p{
+  max-width: 52ch; margin: 20px 0 0;
+  font: 400 clamp(15px, 1.5vw, 18px)/1.65 var(--sans); color: rgba(255,255,255,.82);
+}
+.hero2-cta{ display: flex; gap: 10px; flex-wrap: wrap; margin-top: 30px; }
+.hero2-btn{
+  font: 600 15px/1 var(--sans); text-decoration: none; white-space: nowrap;
+  padding: 16px 26px; border-radius: 100px;
+  background: #fff; color: #11150f; border: 1px solid #fff;
+  transition: transform .14s, background .14s, color .14s;
+}
+.hero2-btn:hover{ transform: translateY(-1px); }
+.hero2-btn.is-ghost{ background: rgba(255,255,255,.08); color: #fff; border-color: rgba(255,255,255,.4); }
+.hero2-btn.is-ghost:hover{ background: rgba(255,255,255,.18); }
+
+.hero2-scroll{
+  position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%);
+  appearance: none; cursor: pointer; background: none; border: 0;
+  display: flex; flex-direction: column; align-items: center; gap: 7px;
+  color: rgba(255,255,255,.76); padding: 8px 12px;
+  font: 500 10.5px/1 var(--mono); letter-spacing: .16em; text-transform: uppercase;
+  transition: color .16s;
+}
+.hero2-scroll:hover{ color: #fff; }
+.hero2-scroll svg{ width: 17px; height: 17px; fill: none; stroke: currentColor;
+  stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; animation: nudge 2.1s ease-in-out infinite; }
+@keyframes nudge{ 0%,100%{ transform: translateY(0); } 50%{ transform: translateY(4px); } }
+@media (prefers-reduced-motion: reduce){ .hero2-scroll svg{ animation: none; } .hero2-ph{ transition: opacity .4s; } }
+
+.hero2-credit{
+  position: absolute; right: 14px; bottom: 12px; z-index: 2; max-width: 46%; text-align: right;
+  font: 500 10px/1.4 var(--mono); color: rgba(255,255,255,.6);
+}
+.hero2-credit a{ color: rgba(255,255,255,.78); }
+
+@media (max-width: 760px){
+  .hero2{ min-height: 74vh; }
+  .hero2-in{ padding: 44px 0 92px; }
+  .hero2-in h1{ max-width: 12ch; }
+  .hero2-btn{ flex: 1; text-align: center; padding: 15px 18px; }
+  .hero2-credit{ display: none; }
+}

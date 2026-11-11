@@ -258,3 +258,24 @@
   padding: 7px 12px; margin: 0 5px 5px 0; }
 .pg-share a{ color: var(--want); text-decoration: none; }
 .pg-share a:hover{ text-decoration: underline; }
+
+/* ---------- attractions nested under their city ---------- */
+.pg-substops{ margin: -4px 0 9px 16px; padding-left: 12px;
+  border-left: 2px solid var(--rule); display: flex; flex-direction: column; gap: 7px; }
+.pg-stop.is-sub{ background: var(--panel-2); padding: 7px 9px; }
+.pg-stop.is-sub .pg-stop-tx a{ font-size: 13.5px; }
+.pg-stop.is-sub .pg-stop-tx i{ text-transform: none; letter-spacing: 0; font-size: 10.5px;
+  font-family: var(--sans); }
+.pg-stop.is-sub .pg-stop-ph{ width: 30px; height: 30px; }
+.pg-stop.is-sub .pg-stop-foot{ margin-top: 6px; }
+.pg-count{ flex: 0 0 auto; font: 500 10px/1 var(--mono); color: var(--muted);
+  background: var(--panel-2); border: 1px solid var(--rule); border-radius: 100px; padding: 5px 8px; }
+/* a group whose city is not on this day */
+.pg-orphan{ padding: 2px 2px 4px; }
+.pg-orphan > span{ font: 500 10px/1 var(--mono); letter-spacing: .1em;
+  text-transform: uppercase; color: var(--faint); }
+/* keep a nested attraction's blurb to two lines so the card stays compact */
+.pg-stop.is-sub .pg-stop-tx i{
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; line-height: 1.35;
+}
