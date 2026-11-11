@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Meridian — the United States</title>
+<meta name="description" content="A personal travel atlas of the United States: every park, city and shore worth the drive, and a map of the ones you have been to.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http%3A//www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%231F2B28'/%3E%3Cg fill='none' stroke='%23E3AC56' stroke-width='1.6'%3E%3Ccircle cx='12' cy='12' r='6.5'/%3E%3Cpath d='M12 5.5v13M5.8 9.6h12.4M5.8 14.4h12.4'/%3E%3C/g%3E%3C/svg%3E">
+
+<!-- Stylesheets are split by concern. Bump ?v= on every deploy or a
+     phone will hold an old copy of one file next to a new copy of another. -->
+<link rel="stylesheet" href="assets/css/tokens.css?v=8">
+<link rel="stylesheet" href="assets/css/base.css?v=8">
+<link rel="stylesheet" href="assets/css/map.css?v=8">
+<link rel="stylesheet" href="assets/css/place.css?v=8">
+<link rel="stylesheet" href="assets/css/home.css?v=8">
+<link rel="stylesheet" href="assets/css/pages.css?v=8">
+</head>
+<body>
+
+<header class="top"><div class="wrap top-in">
+  <a class="brand" href="#/">
+    <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3v18"/><path d="M4.2 7.5h15.6M4.2 16.5h15.6"/></svg>
+    MERIDIAN
+  </a>
+
+  <nav class="nav" id="nav">
+    <a href="#/"        data-nav="home">Home</a>
+    <a href="#/map"     data-nav="map">The map</a>
+    <a href="#/trips"   data-nav="trips">Trips</a>
+    <a href="#/planner" data-nav="planner">Plan a trip</a>
+    <a href="#/account" data-nav="account" id="acLink">Account</a>
+  </nav>
+
+  <span class="top-sp"></span>
+  <button class="tbtn" id="themebtn" type="button">Theme</button>
+  <button class="tbtn navbtn" id="navbtn" type="button" aria-expanded="false" aria-controls="nav">Menu</button>
+</div></header>
+
+<main>
+  <!-- Home view: the map. Left in the DOM when a place page is open,
+       so the map stays built and returning to it is instant. -->
+  <div id="view-home">
+    <section class="wrap hero">
+      <span class="lab">The United States</span>
+      <h1>Every place worth the drive.</h1>
+      <p>Parks, cities, shores and canyons across all fifty states. Tap any marker to mark it
+         as somewhere you have been, or somewhere you want to go — the map is yours after that.</p>
+    </section>
+
+    <section class="wrap">
+      <div id="map"></div>
+    </section>
+
+    <!-- planner jump, place of the week, this month, counters — built by home.js -->
+    <div id="home-sections"></div>
+  </div>
+
+  <!-- Place view: filled by the router from #/place/<id>. -->
+  <div id="view-place" hidden></div>
+</main>
+
+<!-- Load order matters: vocabulary, then data, then the pieces that
+     read it, then boot. geo.us.js is generated; the rest is hand-edited. -->
+<script src="assets/js/data/taxonomy.js?v=8"></script>
+<script src="assets/js/data/places.js?v=8"></script>
+<script src="assets/js/data/spots.js?v=8"></script>
+<script src="assets/js/data/food.js?v=8"></script>
+<script src="assets/js/data/info.js?v=8"></script>
+<script src="assets/js/data/photos.js?v=8"></script>
+<script src="assets/js/data/geo.us.js?v=8"></script>
+
+<script src="assets/js/core/config.js?v=8"></script>
+<script src="assets/js/core/auth.js?v=8"></script>
+<script src="assets/js/core/state.js?v=8"></script>
+<script src="assets/js/core/geo.js?v=8"></script>
+<script src="assets/js/core/tags.js?v=8"></script>
+<script src="assets/js/core/itin.js?v=8"></script>
+<script src="assets/js/core/stops.js?v=8"></script>
+<script src="assets/js/core/pick.js?v=8"></script>
+<script src="assets/js/core/trips.js?v=8"></script>
+<script src="assets/js/core/cloud.js?v=8"></script>
+<script src="assets/js/core/photos.js?v=8"></script>
+
+<script src="assets/js/map/icons.js?v=8"></script>
+<script src="assets/js/map/usmap.js?v=8"></script>
+<script src="assets/js/map/mini.js?v=8"></script>
+
+<script src="assets/js/pages/place.js?v=8"></script>
+<script src="assets/js/pages/home.js?v=8"></script>
+<script src="assets/js/pages/planner.js?v=8"></script>
+<script src="assets/js/pages/trips.js?v=8"></script>
+<script src="assets/js/pages/states.js?v=8"></script>
+<script src="assets/js/pages/account.js?v=8"></script>
+
+<script src="assets/js/app.js?v=8"></script>
+<script src="assets/js/core/router.js?v=8"></script>
+</body>
+</html>
