@@ -1,0 +1,109 @@
+/* ===========================================================
+   TOKENS — the whole palette and type scale, in one place.
+
+   Change a colour here and it changes everywhere. Nothing else
+   in the site should hard-code a hex value.
+
+   Light is warm paper, like a printed atlas. Dark is a deep
+   slate-green rather than black, so the land still reads as land.
+   Gold means been, teal means want to go — the only two accent
+   colours, used nowhere else, so they always mean the same thing.
+   =========================================================== */
+
+:root{
+  /* surfaces */
+  --ground:    #FBF9F4;
+  --panel:     #FFFFFF;
+  --panel-2:   #F5F2EA;
+  --void:      #F2EEE4;             /* the space around the land */
+
+  /* ink */
+  --ink:       #191D1B;
+  --ink-2:     #3D4542;
+  --muted:     #6E736F;
+  --faint:     #9AA09B;
+
+  /* lines */
+  --rule:      #DED7C8;
+  --rule-soft: #ECE7DA;
+
+  /* the two meanings */
+  --been:      #BE7F27;
+  --been-ink:  #2A1C05;
+  --want:      #2C8A80;
+  --want-ink:  #04221F;
+
+  /* the map */
+  --land:      #E7E1D2;
+  --land-hi:   #DCD4C0;
+  --land-line: #CFC6B2;
+
+  /* type */
+  --serif: 'Instrument Serif', Georgia, 'Times New Roman', serif;
+  --sans:  'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --mono:  'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* shape */
+  --r-s: 8px;
+  --r-m: 12px;
+  --r-l: 18px;
+  --shadow: 0 10px 30px rgba(25,29,27,.10);
+  --shadow-lg: 0 22px 54px rgba(25,29,27,.16);
+}
+
+/* Dark follows the system unless the page asks for a theme by name. */
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:    #101614;
+    --panel:     #18201E;
+    --panel-2:   #1E2725;
+    --void:      #0C1211;
+
+    --ink:       #EDEBE4;
+    --ink-2:     #C8CCC7;
+    --muted:     #98A09B;
+    --faint:     #6C756F;
+
+    --rule:      #2A3532;
+    --rule-soft: #202a28;
+
+    --been:      #E3AC56;
+    --been-ink:  #231703;
+    --want:      #4FB3A8;
+    --want-ink:  #04221F;
+
+    --land:      #1F2B28;
+    --land-hi:   #28362F;
+    --land-line: #33423E;
+
+    --shadow:    0 10px 30px rgba(0,0,0,.44);
+    --shadow-lg: 0 22px 54px rgba(0,0,0,.56);
+  }
+}
+
+:root[data-theme="dark"]{
+  --ground:    #101614;
+  --panel:     #18201E;
+  --panel-2:   #1E2725;
+  --void:      #0C1211;
+
+  --ink:       #EDEBE4;
+  --ink-2:     #C8CCC7;
+  --muted:     #98A09B;
+  --faint:     #6C756F;
+
+  --rule:      #2A3532;
+  --rule-soft: #202a28;
+
+  --been:      #E3AC56;
+  --been-ink:  #231703;
+  --want:      #4FB3A8;
+  --want-ink:  #04221F;
+
+  --land:      #1F2B28;
+  --land-hi:   #28362F;
+  --land-line: #33423E;
+
+  --shadow:    0 10px 30px rgba(0,0,0,.44);
+  --shadow-lg: 0 22px 54px rgba(0,0,0,.56);
+}

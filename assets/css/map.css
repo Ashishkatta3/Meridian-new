@@ -1,0 +1,252 @@
+/* ===========================================================
+   THE MAP
+
+   Everything the US map needs and nothing else. The markers do
+   most of the work here: unmarked places sit back in muted ink
+   so they read as context, and the two colours that mean
+   something — gold for been, teal for want — carry weight and a
+   soft glow so your own map jumps out of the country.
+   =========================================================== */
+
+.umap{
+  position: relative;
+  border: 1px solid var(--rule);
+  border-radius: var(--r-l);
+  background: var(--void);
+  overflow: hidden;
+}
+
+/* ---------- the bar above ---------- */
+.um-bar{
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap;
+  padding: 11px 13px;
+  border-bottom: 1px solid var(--rule);
+  background: var(--panel);
+}
+.um-chips{ display: flex; gap: 6px; }
+.um-chip{
+  appearance: none; cursor: pointer;
+  font: 500 13px/1 var(--sans);
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--rule);
+  border-radius: 100px;
+  padding: 8px 14px;
+  transition: color .16s, background .16s, border-color .16s;
+}
+.um-chip:hover{ color: var(--ink); border-color: var(--faint); }
+.um-chip.is-on{
+  color: var(--panel); background: var(--ink); border-color: var(--ink);
+}
+
+.um-zoom{ display: flex; gap: 6px; }
+.um-zoom button{
+  appearance: none; cursor: pointer;
+  min-width: 34px; height: 34px;
+  font: 500 15px/1 var(--sans);
+  color: var(--ink-2);
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-s);
+  padding: 0 10px;
+  transition: border-color .16s, color .16s;
+}
+.um-zoom button:last-child{ font-size: 12px; letter-spacing: .04em; }
+.um-zoom button:hover{ border-color: var(--ink); color: var(--ink); }
+
+/* ---------- the stage ---------- */
+.um-stage{ position: relative; height: var(--umh, 560px); }
+
+.um-svg{
+  display: block; width: 100%; height: 100%;
+  cursor: grab;
+  touch-action: none;             /* we handle drag and pinch ourselves */
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+.umap.is-drag .um-svg{ cursor: grabbing; }
+.um-svg:focus-visible{ box-shadow: inset 0 0 0 2px var(--want); }
+
+/* ---------- the country ---------- */
+.um-state{
+  fill: var(--land);
+  stroke: var(--land-line);
+  stroke-width: .6;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;   /* hairlines stay hairlines when zoomed */
+  transition: fill .18s;
+}
+.um-state:hover{ fill: var(--land-hi); }
+
+.um-stlab{
+  font: 500 9px/1 var(--mono);
+  fill: var(--muted);
+  text-anchor: middle;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .25s;
+}
+.umap.is-zoomed .um-stlab{ opacity: .7; }
+
+/* ---------- the markers ---------- */
+.um-pin{ cursor: pointer; }
+.um-hit{ fill: transparent; }        /* a finger-sized target around each one */
+
+.um-dot{
+  fill: var(--panel);
+  stroke: var(--land-line);
+  stroke-width: 1.2;
+  transition: fill .16s, stroke .16s;
+}
+.um-gl path{
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: stroke .16s;
+}
+.um-pin:hover .um-dot{ stroke: var(--ink); }
+.um-pin:hover .um-gl path{ stroke: var(--ink); }
+
+/* the two that mean something */
+.um-pin.is-been .um-dot{ fill: var(--been); stroke: var(--been); filter: url(#umGlow); }
+.um-pin.is-been .um-gl path{ stroke: var(--been-ink); stroke-width: 2; }
+
+.um-pin.is-want .um-dot{ fill: var(--panel); stroke: var(--want); stroke-width: 2.4; }
+.um-pin.is-want .um-gl path{ stroke: var(--want); stroke-width: 2; }
+
+/* ---------- hint ---------- */
+.um-hint{
+  position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
+  font: 500 11px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  border: 1px solid var(--rule);
+  border-radius: 100px;
+  padding: 7px 14px;
+  pointer-events: none;
+  transition: opacity .4s;
+}
+.um-hint.is-gone{ opacity: 0; }
+
+/* ---------- the card ---------- */
+.um-card{
+  position: absolute; left: 14px; right: 14px; bottom: 14px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; flex-wrap: wrap;
+  padding: 13px 14px;
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-m);
+  box-shadow: var(--shadow-lg);
+  animation: umUp .18s ease-out;
+}
+@keyframes umUp{ from{ opacity:0; transform: translateY(8px); } to{ opacity:1; transform:none; } }
+@media (prefers-reduced-motion: reduce){ .um-card{ animation: none; } }
+
+/* On a wide screen the card sits right, not left: Albers tucks Alaska
+   and Hawaii into the bottom-left corner and a card there covers them. */
+@media (min-width: 720px){
+  .um-card{ left: auto; right: 14px; min-width: 390px; max-width: 460px; }
+}
+
+.um-ct{ display: flex; align-items: center; gap: 12px; min-width: 0; }
+
+/* the thumbnail, and what stands in when a place has no photo */
+.um-cp{
+  position: relative; overflow: hidden; flex: 0 0 auto;
+  width: 58px; height: 58px; border-radius: 10px;
+  background: var(--panel-2); border: 1px solid var(--rule);
+}
+.um-cp img{ width: 100%; height: 100%; object-fit: cover; display: block; }
+.um-cp .ph-credit{ display: none; }        /* too small to caption */
+
+.ph-fall{
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; height: 100%;
+  background: linear-gradient(140deg, var(--panel-2), var(--rule-soft));
+}
+.ph-fall svg{ width: 48%; height: 48%; opacity: .5; }
+.ph-fall svg path{ fill: none; stroke: var(--ink); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+.ph-credit{
+  position: absolute; right: 6px; bottom: 5px;
+  font: 500 9px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase;
+  color: #fff; background: rgba(0,0,0,.55); padding: 3px 6px; border-radius: 5px;
+}
+.um-ct b{ display: block; font: 600 16px/1.2 var(--sans); color: var(--ink); }
+.um-ct i{ display: block; font: 500 10.5px/1.4 var(--mono); letter-spacing: .1em;
+          text-transform: uppercase; color: var(--muted); font-style: normal; padding-top: 3px; }
+
+.um-cb{ display: flex; gap: 6px; }
+.um-mk, .um-open{
+  appearance: none; cursor: pointer;
+  font: 500 12.5px/1 var(--sans);
+  padding: 9px 12px;
+  border-radius: var(--r-s);
+  border: 1px solid var(--rule);
+  background: transparent;
+  color: var(--muted);
+  transition: all .16s;
+  white-space: nowrap;
+}
+.um-mk:hover{ color: var(--ink); border-color: var(--faint); }
+.um-mk[data-ummk="been"].is-on{ background: var(--been); border-color: var(--been); color: var(--been-ink); }
+.um-mk[data-ummk="want"].is-on{ background: var(--want); border-color: var(--want); color: #fff; }
+.um-open{ background: var(--ink); border-color: var(--ink); color: var(--panel); }
+
+.um-x{
+  position: absolute; top: 6px; right: 8px;
+  appearance: none; cursor: pointer; background: none; border: 0;
+  font-size: 19px; line-height: 1; color: var(--faint); padding: 4px;
+}
+.um-x:hover{ color: var(--ink); }
+
+/* ---------- legend ---------- */
+.um-legend{
+  display: flex; flex-wrap: wrap; gap: 7px 16px;
+  padding: 11px 14px;
+  border-top: 1px solid var(--rule);
+  background: var(--panel);
+}
+.um-key{
+  display: inline-flex; align-items: center; gap: 6px;
+  font: 500 11px/1 var(--mono); letter-spacing: .06em;
+  text-transform: uppercase; color: var(--muted);
+}
+.um-keyi{ width: 17px; height: 17px; }
+.um-keyi path{ fill: none; stroke: var(--muted); stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+.um-key i{ width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+.um-key-been i{ background: var(--been); }
+.um-key-want i{ background: transparent; border: 2.4px solid var(--want); }
+
+/* ---------- phones ---------- */
+@media (max-width: 760px){
+  /* The country is wide and a phone is tall, so the map fits to width and
+     a fixed height would leave a couple of hundred pixels of nothing above
+     and below it. Matching the stage to the map's own proportions removes
+     the dead space entirely. */
+  .um-stage{ height: auto; aspect-ratio: 960 / 600; }
+  .um-bar{ padding: 9px 10px; gap: 8px; }
+  .um-chip{ padding: 7px 11px; font-size: 12.5px; }
+  .um-zoom button{ min-width: 32px; height: 32px; }
+  .um-legend{ gap: 6px 12px; padding: 9px 10px; }
+  .um-key{ font-size: 10px; }
+  /* only the essentials, or the legend eats the screen */
+  .um-key:nth-child(n+5):not(.um-key-been):not(.um-key-want){ display: none; }
+  /* The map is only a couple of hundred pixels tall on a phone, so a
+     floating card would cover all of it. Below the map instead. */
+  .um-card{
+    /* relative, not static: it sits in the flow below the map but still
+       anchors its own close button instead of letting it drift onto the map */
+    position: relative; inset: auto; padding: 12px 12px 13px;
+    border: 0; border-top: 1px solid var(--rule);
+    border-radius: 0; box-shadow: none;
+  }
+  .um-x{ top: 8px; right: 10px; }
+  .um-cb{ width: 100%; }
+  .um-cb button{ flex: 1; text-align: center; }
+  .um-hint{ bottom: 10px; font-size: 10px; padding: 6px 11px; }
+}

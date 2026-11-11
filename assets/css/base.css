@@ -1,0 +1,91 @@
+/* ===========================================================
+   BASE — reset, typography and the page shell.
+   Nothing feature-specific lives here.
+   =========================================================== */
+
+*, *::before, *::after{ box-sizing: border-box; }
+
+html{ -webkit-text-size-adjust: 100%; }
+
+body{
+  margin: 0;
+  background: var(--ground);
+  color: var(--ink);
+  font: 400 16px/1.6 var(--sans);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;              /* nothing may push the page sideways */
+}
+
+h1, h2, h3{ margin: 0; font-weight: 400; line-height: 1.1; }
+p{ margin: 0; }
+a{ color: inherit; text-decoration: none; }
+button{ font-family: inherit; }
+svg{ display: block; }
+
+.wrap{ width: min(1240px, 100% - 40px); margin-inline: auto; }
+@media (max-width: 760px){ .wrap{ width: calc(100% - 32px); } }
+
+.hidden{
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+/* ---------- top bar ---------- */
+.top{
+  position: sticky; top: 0; z-index: 40;
+  background: color-mix(in srgb, var(--ground) 92%, transparent);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--rule);
+}
+.top-in{ display: flex; align-items: center; gap: 16px; padding: 14px 0; }
+
+.brand{
+  display: flex; align-items: center; gap: 9px;
+  font: 500 13px/1 var(--mono); letter-spacing: .28em; color: var(--ink);
+}
+.brand svg{ stroke: var(--been); fill: none; stroke-width: 1.6; }
+
+.top-sp{ margin-left: auto; }
+
+.tbtn{
+  appearance: none; cursor: pointer;
+  font: 500 11px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase;
+  color: var(--muted); background: transparent;
+  border: 1px solid var(--rule); border-radius: var(--r-s);
+  padding: 9px 12px; transition: color .16s, border-color .16s;
+}
+.tbtn:hover{ color: var(--ink); border-color: var(--ink); }
+
+/* ---------- hero ---------- */
+.hero{ padding: 44px 0 22px; }
+.hero h1{
+  font-family: var(--serif);
+  font-size: clamp(38px, 7vw, 68px);
+  letter-spacing: -.012em;
+}
+.hero p{
+  max-width: 62ch; padding-top: 14px;
+  font-size: clamp(15px, 1.6vw, 18px); color: var(--muted);
+}
+
+.lab{
+  font: 500 10.5px/1 var(--mono); letter-spacing: .2em;
+  text-transform: uppercase; color: var(--muted);
+}
+
+/* ---------- counters under the map ---------- */
+.tally{
+  display: flex; flex-wrap: wrap; gap: 10px;
+  padding: 18px 0 60px;
+}
+.tally span{
+  display: inline-flex; align-items: baseline; gap: 8px;
+  padding: 11px 15px;
+  border: 1px solid var(--rule); border-radius: 100px;
+  background: var(--panel);
+}
+.tally b{ font: 600 17px/1 var(--sans); color: var(--ink); }
+.tally i{
+  font: 500 10.5px/1 var(--mono); letter-spacing: .14em;
+  text-transform: uppercase; color: var(--muted); font-style: normal;
+}
