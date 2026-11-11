@@ -271,5 +271,3 @@ tab. `tools/download-photos.js` pulls every image into `assets/img/places/` and
 rewrites `photos.js` to local paths, which ends the problem for good and keeps
 the credits intact in `CREDITS.txt`. The hotlinked version is kept as
 `photos.remote.js` so the change is reversible.
-#   M e r i d i a n - n e w  
- 

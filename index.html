@@ -12,12 +12,12 @@
 
 <!-- Stylesheets are split by concern. Bump ?v= on every deploy or a
      phone will hold an old copy of one file next to a new copy of another. -->
-<link rel="stylesheet" href="assets/css/tokens.css?v=8">
-<link rel="stylesheet" href="assets/css/base.css?v=8">
-<link rel="stylesheet" href="assets/css/map.css?v=8">
-<link rel="stylesheet" href="assets/css/place.css?v=8">
-<link rel="stylesheet" href="assets/css/home.css?v=8">
-<link rel="stylesheet" href="assets/css/pages.css?v=8">
+<link rel="stylesheet" href="assets/css/tokens.css?v=9">
+<link rel="stylesheet" href="assets/css/base.css?v=9">
+<link rel="stylesheet" href="assets/css/map.css?v=9">
+<link rel="stylesheet" href="assets/css/place.css?v=9">
+<link rel="stylesheet" href="assets/css/home.css?v=9">
+<link rel="stylesheet" href="assets/css/pages.css?v=9">
 </head>
 <body>
 
@@ -44,14 +44,30 @@
   <!-- Home view: the map. Left in the DOM when a place page is open,
        so the map stays built and returning to it is instant. -->
   <div id="view-home">
-    <section class="wrap hero">
-      <span class="lab">The United States</span>
-      <h1>Every place worth the drive.</h1>
-      <p>Parks, cities, shores and canyons across all fifty states. Tap any marker to mark it
-         as somewhere you have been, or somewhere you want to go — the map is yours after that.</p>
+    <!-- The opening. home.js drops a photograph behind it; with no
+         photo it falls back to a gradient and still reads well. -->
+    <section class="hero2" id="hero">
+      <div class="hero2-ph" id="heroPh"></div>
+      <div class="hero2-grad"></div>
+      <div class="wrap hero2-in">
+        <span class="lab">A travel atlas of the United States</span>
+        <h1>Every place worth the drive.</h1>
+        <p>Nearly four hundred parks, cities, shores and canyons — what to do in each,
+           where to eat, and when to go. Mark the ones you have been to, then build the
+           trip with everyone coming along.</p>
+        <div class="hero2-cta">
+          <a class="hero2-btn" href="#/map">Explore the map</a>
+          <a class="hero2-btn is-ghost" href="#/planner">Plan a trip</a>
+        </div>
+      </div>
+      <button class="hero2-scroll" id="heroScroll" type="button">
+        <span>Scroll to start planning</span>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg>
+      </button>
+      <figcaption class="hero2-credit" id="heroCredit"></figcaption>
     </section>
 
-    <section class="wrap">
+    <section class="wrap" id="mapTop">
       <div id="map"></div>
     </section>
 
@@ -65,38 +81,38 @@
 
 <!-- Load order matters: vocabulary, then data, then the pieces that
      read it, then boot. geo.us.js is generated; the rest is hand-edited. -->
-<script src="assets/js/data/taxonomy.js?v=8"></script>
-<script src="assets/js/data/places.js?v=8"></script>
-<script src="assets/js/data/spots.js?v=8"></script>
-<script src="assets/js/data/food.js?v=8"></script>
-<script src="assets/js/data/info.js?v=8"></script>
-<script src="assets/js/data/photos.js?v=8"></script>
-<script src="assets/js/data/geo.us.js?v=8"></script>
+<script src="assets/js/data/taxonomy.js?v=9"></script>
+<script src="assets/js/data/places.js?v=9"></script>
+<script src="assets/js/data/spots.js?v=9"></script>
+<script src="assets/js/data/food.js?v=9"></script>
+<script src="assets/js/data/info.js?v=9"></script>
+<script src="assets/js/data/photos.js?v=9"></script>
+<script src="assets/js/data/geo.us.js?v=9"></script>
 
-<script src="assets/js/core/config.js?v=8"></script>
-<script src="assets/js/core/auth.js?v=8"></script>
-<script src="assets/js/core/state.js?v=8"></script>
-<script src="assets/js/core/geo.js?v=8"></script>
-<script src="assets/js/core/tags.js?v=8"></script>
-<script src="assets/js/core/itin.js?v=8"></script>
-<script src="assets/js/core/stops.js?v=8"></script>
-<script src="assets/js/core/pick.js?v=8"></script>
-<script src="assets/js/core/trips.js?v=8"></script>
-<script src="assets/js/core/cloud.js?v=8"></script>
-<script src="assets/js/core/photos.js?v=8"></script>
+<script src="assets/js/core/config.js?v=9"></script>
+<script src="assets/js/core/auth.js?v=9"></script>
+<script src="assets/js/core/state.js?v=9"></script>
+<script src="assets/js/core/geo.js?v=9"></script>
+<script src="assets/js/core/tags.js?v=9"></script>
+<script src="assets/js/core/itin.js?v=9"></script>
+<script src="assets/js/core/stops.js?v=9"></script>
+<script src="assets/js/core/pick.js?v=9"></script>
+<script src="assets/js/core/trips.js?v=9"></script>
+<script src="assets/js/core/cloud.js?v=9"></script>
+<script src="assets/js/core/photos.js?v=9"></script>
 
-<script src="assets/js/map/icons.js?v=8"></script>
-<script src="assets/js/map/usmap.js?v=8"></script>
-<script src="assets/js/map/mini.js?v=8"></script>
+<script src="assets/js/map/icons.js?v=9"></script>
+<script src="assets/js/map/usmap.js?v=9"></script>
+<script src="assets/js/map/mini.js?v=9"></script>
 
-<script src="assets/js/pages/place.js?v=8"></script>
-<script src="assets/js/pages/home.js?v=8"></script>
-<script src="assets/js/pages/planner.js?v=8"></script>
-<script src="assets/js/pages/trips.js?v=8"></script>
-<script src="assets/js/pages/states.js?v=8"></script>
-<script src="assets/js/pages/account.js?v=8"></script>
+<script src="assets/js/pages/place.js?v=9"></script>
+<script src="assets/js/pages/home.js?v=9"></script>
+<script src="assets/js/pages/planner.js?v=9"></script>
+<script src="assets/js/pages/trips.js?v=9"></script>
+<script src="assets/js/pages/states.js?v=9"></script>
+<script src="assets/js/pages/account.js?v=9"></script>
 
-<script src="assets/js/app.js?v=8"></script>
-<script src="assets/js/core/router.js?v=8"></script>
+<script src="assets/js/app.js?v=9"></script>
+<script src="assets/js/core/router.js?v=9"></script>
 </body>
 </html>
