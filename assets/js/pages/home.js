@@ -90,14 +90,12 @@
 
     placePhoto(place).then(ph => {
       if (!ph || !ph.src) return;                   // gradient stands in
-      const img = new Image();
-      img.onload = () => {
-        slot.style.backgroundImage = 'url("' + ph.src + '")';
+      loadImage(ph.src, 1800, img => {
+        slot.style.backgroundImage = 'url("' + img.src + '")';
         slot.classList.add('is-on');
         if (cred) cred.innerHTML = plEsc(place.name) + ', ' + plEsc(stateName(place.abbr))
           + (ph.by ? ' · <a href="' + plEsc(ph.page || '#') + '" target="_blank" rel="noopener">' + plEsc(ph.by) + '</a>' : '');
-      };
-      img.src = ph.src;
+      });
     });
   })();
 
@@ -244,10 +242,9 @@
     if (!el || !place) return;
     placePhoto(place).then(p => {
       if (!p || !p.src){ el.classList.add('is-empty'); el.innerHTML = '<span class="hm-fall">' + homeIcon(place.kind) + '</span>'; return; }
-      const img = new Image();
-      img.onload = () => { el.style.backgroundImage = 'url("' + p.src + '")'; el.classList.add('is-on'); };
-      img.onerror = () => { el.classList.add('is-empty'); el.innerHTML = '<span class="hm-fall">' + homeIcon(place.kind) + '</span>'; };
-      img.src = p.src;
+      loadImage(p.src, 700,
+        img => { el.style.backgroundImage = 'url("' + img.src + '")'; el.classList.add('is-on'); },
+        () => { el.classList.add('is-empty'); el.innerHTML = '<span class="hm-fall">' + homeIcon(place.kind) + '</span>'; });
     });
   }
 })();

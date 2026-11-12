@@ -496,10 +496,9 @@ function pgPhoto(el, place){
   if (!el || !place) return;
   placePhoto(place).then(p => {
     if (!p || !p.src) { el.classList.add('is-empty'); return; }
-    const img = new Image();
-    img.onload = () => { el.style.backgroundImage = 'url("' + (p.thumb || p.src) + '")'; el.classList.add('is-on'); };
-    img.onerror = () => el.classList.add('is-empty');
-    img.src = p.thumb || p.src;
+    loadImage(p.thumb || p.src, 500,
+      img => { el.style.backgroundImage = 'url("' + img.src + '")'; el.classList.add('is-on'); },
+      () => el.classList.add('is-empty'));
   });
 }
 

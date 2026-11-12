@@ -109,6 +109,51 @@ async function placePhoto(place){
 /* A drawn stand-in for places with no article photo: the place's own
    icon on a tinted field. Better than an empty grey box, and it never
    fails to load. */
+/* ===========================================================
+   RESIZING
+
+   photos.js stores full-size originals, because Wikimedia's own
+   thumbnail paths turned out to be unreachable while the originals
+   load reliably. Originals are far too heavy to drop straight into
+   a page — several megabytes each — so they are resized here, by a
+   free image CDN that fetches the original on its side and returns
+   a sized JPEG.
+
+   Everything that paints a photo goes through loadImage(), which
+   tries the resized version and falls back to the original if the
+   CDN is unreachable. That way the worst case is a slow picture
+   rather than no picture, and the resizing can be changed or
+   removed in this one function.
+   =========================================================== */
+function cdnImg(url, w){
+  if (!url) return '';
+  if (!/^https?:\/\//.test(url)) return url;            /* a local file */
+  if (/wsrv\.nl/.test(url)) return url;                 /* already resized */
+  return 'https://wsrv.nl/?url=' + url.replace(/^https?:\/\//, '')
+       + (w ? '&w=' + w : '') + '&output=jpg&q=82&n=-1';
+}
+
+/* Load `url` at about `w` pixels wide into an Image, calling ok(img)
+   when it arrives and fail() if neither the CDN nor the original
+   will come. */
+function loadImage(url, w, ok, fail){
+  if (!url){ if (fail) fail(); return; }
+  const img = new Image();
+  img.decoding = 'async';
+  let triedOriginal = false;
+  img.onload = () => ok(img);
+  img.onerror = () => {
+    if (!triedOriginal && cdnImg(url, w) !== url){
+      triedOriginal = true;
+      img.src = url;                                     /* straight from source */
+      return;
+    }
+    if (fail) fail();
+  };
+  img.src = cdnImg(url, w);
+  return img;
+}
+
 function photoFallback(place, cls){
   return '<span class="ph-fall ' + (cls || '') + '" data-kind="' + (place.kind || '') + '">'
        + '<svg viewBox="-12 -12 24 24" aria-hidden="true">' + placeIcon(place.kind, 22) + '</svg>'
@@ -124,11 +169,8 @@ function paintPhoto(el, place){
   el.innerHTML = photoFallback(place);
   placePhoto(place).then(p => {
     if (!p || !p.src) return;
-    const img = new Image();
-    img.alt = place.name;
-    img.loading = 'lazy';
-    img.decoding = 'async';
-    img.onload = () => {
+    loadImage(p.thumb || p.src, 400, img => {
+      img.alt = place.name;
       el.innerHTML = '';
       el.appendChild(img);
       const a = document.createElement('a');
@@ -139,8 +181,7 @@ function paintPhoto(el, place){
       a.textContent = by;
       a.title = [p.by, p.lic].filter(Boolean).join(' · ') || 'Source';
       el.appendChild(a);
-    };
-    img.src = p.thumb || p.src;
+    });
   });
 }
 

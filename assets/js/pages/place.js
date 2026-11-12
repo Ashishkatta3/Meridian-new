@@ -277,6 +277,7 @@ function mountPlace(host, id){
   window.scrollTo(0, 0);
 
   heroPhoto(host.querySelector('[data-hero]'), me);
+  resetSpotPhotos(me);
   host.querySelectorAll('[data-spotphoto]').forEach(paintSpotPhoto);
   tickTime(host, me.abbr);
   loadWeather(host, me);
@@ -290,21 +291,19 @@ function heroPhoto(slot, place){
   placePhoto(place).then(p => {
     if (!p || !p.src){ slot.classList.remove('is-loading'); slot.classList.add('is-empty');
       slot.innerHTML = '<span class="pl-hero-fall">' + iconFor(place.kind) + '</span>'; return; }
-    const img = new Image();
-    img.alt = place.name; img.decoding = 'async';
-    img.onload = () => {
+    loadImage(p.src, 1400, img => {
       slot.classList.remove('is-loading');
-      slot.style.backgroundImage = 'url("' + p.src + '")';
+      slot.style.backgroundImage = 'url("' + img.src + '")';
       if (p.by || p.page){
         const a = document.createElement('a');
         a.className = 'pl-credit'; a.href = p.page || '#'; a.target = '_blank'; a.rel = 'noopener';
         a.textContent = (p.by ? p.by : (p.src_kind === 'nps' ? 'NPS' : 'Wikimedia')) + (p.lic ? ' · ' + p.lic : '');
         slot.appendChild(a);
       }
-    };
-    img.onerror = () => { slot.classList.remove('is-loading'); slot.classList.add('is-empty');
-      slot.innerHTML = '<span class="pl-hero-fall">' + iconFor(place.kind) + '</span>'; };
-    img.src = p.src;
+    }, () => {
+      slot.classList.remove('is-loading'); slot.classList.add('is-empty');
+      slot.innerHTML = '<span class="pl-hero-fall">' + iconFor(place.kind) + '</span>';
+    });
   });
 }
 
@@ -375,34 +374,139 @@ const SPOT_PHOTO_CACHE = {};
 function cachedSpotPhoto(sid){
   if (SPOT_PHOTO_CACHE[sid] !== undefined) return SPOT_PHOTO_CACHE[sid];
   try {
-    const v = sessionStorage.getItem('spotph:' + sid);
+    const v = sessionStorage.getItem('spotph2:' + sid);
     if (v !== null){ SPOT_PHOTO_CACHE[sid] = v; return v; }
   } catch(e){}
   return undefined;
 }
 function rememberSpotPhoto(sid, url){
   SPOT_PHOTO_CACHE[sid] = url || '';
-  try { sessionStorage.setItem('spotph:' + sid, url || ''); } catch(e){}
+  try { sessionStorage.setItem('spotph2:' + sid, url || ''); } catch(e){}
 }
 
-/* Wikipedia's search finds the best-matching article; pageimages
-   gives that article's lead photo. One request per attraction, once. */
-async function lookupSpotPhoto(name, place){
-  const url = 'https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*'
-    + '&generator=search&gsrlimit=1&gsrsearch=' + encodeURIComponent(name + ' ' + place.name)
-    + '&prop=pageimages&piprop=thumbnail&pithumbsize=400';
+/* ---- is this photo actually of this thing? ----
+
+   Wikipedia's search never says "no match"; it returns the closest
+   article it has. Ask it for "Sun's Eye, Monument Valley" and it hands
+   back the Monument Valley article, so every butte on the page ends up
+   wearing the same postcard. So the title that comes back is checked
+   against the name that was asked for, and a picture already used on
+   the page is never used a second time. An icon is better than a
+   confidently wrong photograph. */
+
+/* Verbs and filler that belong to the instruction rather than the
+   place: "Walk the Freedom Trail" is a question about Freedom Trail. */
+const SPOT_STOP = {
+  the:1, a:1, an:1, of:1, at:1, in:1, on:1, and:1, to:1, for:1, from:1, with:1,
+  visit:1, see:1, walk:1, hike:1, tour:1, drive:1, ride:1, explore:1, take:1,
+  stroll:1, wander:1, browse:1, shop:1, catch:1, watch:1, try:1, eat:1, dine:1,
+  stay:1, climb:1, kayak:1, paddle:1, raft:1, swim:1, camp:1, spend:1, go:1,
+  tours:1, trip:1, day:1, your:1, its:1, best:1, famous:1, historic:1
+};
+
+function spotWords(s){
+  return String(s || '').toLowerCase()
+    .replace(/\(.*?\)/g, ' ')
+    .replace(/['’]s\b/g, '')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .split(' ')
+    .filter(w => w.length > 1 && !SPOT_STOP[w]);
+}
+
+function wordIn(w, list){
+  return list.some(g => g === w || g.indexOf(w) === 0 || w.indexOf(g) === 0);
+}
+
+/* True when `title` plausibly names `name`. The strict half is the
+   second test: the words that make the attraction different from the
+   place it sits in ("camel", "butte" inside Monument Valley) have to
+   show up, which is exactly what the parent-article fallback lacks. */
+function titleFits(name, title, place){
+  const want = spotWords(name);
+  const got  = spotWords(title);
+  if (!want.length || !got.length) return false;
+
+  const parent = spotWords(place.name);
+  if (parent.length && got.join(' ') === parent.join(' ')
+      && want.join(' ') !== parent.join(' ')) return false;
+
+  let hit = 0;
+  want.forEach(w => { if (wordIn(w, got)) hit++; });
+  if (hit / want.length < 0.6) return false;
+
+  const own = want.filter(w => !wordIn(w, parent));
+  if (own.length){
+    let ownHit = 0;
+    own.forEach(w => { if (wordIn(w, got)) ownHit++; });
+    if (!ownHit || ownHit / own.length < 0.5) return false;
+  }
+  return true;
+}
+
+/* One picture per attraction per page. Keyed on the file name so the
+   same image at two sizes still counts as the same image. */
+let SPOT_USED = {};
+function photoKey(url){
+  const m = String(url || '').match(/\/([^\/?#]+)$/);
+  let f = m ? m[1] : String(url || '');
+  try { f = decodeURIComponent(f); } catch(e){}
+  return f.replace(/^\d+px-/, '').toLowerCase();
+}
+function resetSpotPhotos(place){
+  SPOT_USED = {};
+  const own = place && (typeof photoLocal === 'function') && photoLocal(place.id);
+  if (own && own.s) SPOT_USED[photoKey(own.s)] = 1;   /* not the hero again */
+}
+
+async function spotApi(url){
   try {
     const ctl = new AbortController();
     const to = setTimeout(() => ctl.abort(), 8000);
     const r = await fetch(url, { signal: ctl.signal });
     clearTimeout(to);
-    if (!r.ok) return '';
+    if (!r.ok) return null;
     const j = await r.json();
     const pages = j && j.query && j.query.pages;
-    if (!pages) return '';
-    const first = pages[Object.keys(pages)[0]];
-    return (first && first.thumbnail && first.thumbnail.source) || '';
-  } catch(e){ return ''; }
+    if (!pages) return null;
+    return Object.keys(pages).map(k => pages[k])
+                 .sort((a, b) => (a.index || 0) - (b.index || 0));
+  } catch(e){ return null; }
+}
+
+/* Two passes: the attraction's own article, then — for the many
+   places with no article of their own — a photograph on Commons whose
+   file name names the thing. Both are checked the same way. */
+async function lookupSpotPhoto(name, place){
+  const q = encodeURIComponent(name + ' ' + place.name);
+  const cands = [];
+
+  const arts = await spotApi(
+    'https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*'
+    + '&generator=search&gsrlimit=6&gsrsearch=' + q
+    + '&prop=pageimages&piprop=thumbnail&pithumbsize=600');
+  (arts || []).forEach(p => {
+    const src = p.thumbnail && p.thumbnail.source;
+    if (src && titleFits(name, p.title || '', place)) cands.push(src);
+  });
+
+  if (!cands.length){
+    const files = await spotApi(
+      'https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*'
+      + '&generator=search&gsrnamespace=6&gsrlimit=10&gsrsearch=' + q
+      + '&prop=imageinfo&iiprop=url&iiurlwidth=600');
+    (files || []).forEach(p => {
+      const ii = p.imageinfo && p.imageinfo[0];
+      if (!ii || !/\.(jpe?g|png|webp)$/i.test(ii.url || '')) return;
+      const t = String(p.title || '').replace(/^File:/, '')
+                                     .replace(/\.[a-z0-9]+$/i, '');
+      if (titleFits(name, t, place)) cands.push(ii.thumburl || ii.url);
+    });
+  }
+
+  for (let i = 0; i < cands.length; i++){
+    if (!SPOT_USED[photoKey(cands[i])]) return cands[i];
+  }
+  return '';
 }
 
 function spotFallback(el){
@@ -412,11 +516,11 @@ function spotFallback(el){
 }
 function showSpotPhoto(el, url){
   if (!url) return spotFallback(el);
-  const img = new Image();
-  img.onload = () => { el.innerHTML = ''; el.style.backgroundImage = 'url("' + url + '")';
-                       el.classList.remove('is-empty'); el.classList.add('is-on'); };
-  img.onerror = () => spotFallback(el);
-  img.src = url;
+  SPOT_USED[photoKey(url)] = 1;
+  loadImage(url, 500, img => {
+    el.innerHTML = ''; el.style.backgroundImage = 'url("' + img.src + '")';
+    el.classList.remove('is-empty'); el.classList.add('is-on');
+  }, () => spotFallback(el));
 }
 
 /* Only look one up once it is actually on screen: a city with forty
@@ -428,8 +532,14 @@ function paintSpotPhoto(el){
   const baked = (typeof photoLocal === 'function') && photoLocal(sid);
   if (baked && baked.t) return showSpotPhoto(el, baked.t);
 
+  /* A photo remembered from an earlier session is still subject to the
+     one-per-page rule — otherwise an old cache can reintroduce the
+     duplicate this fix exists to remove. */
   const seen = cachedSpotPhoto(sid);
-  if (seen !== undefined) return showSpotPhoto(el, seen);
+  if (seen !== undefined){
+    if (seen && SPOT_USED[photoKey(seen)]) return spotFallback(el);
+    return showSpotPhoto(el, seen);
+  }
 
   spotFallback(el);
   if (!('IntersectionObserver' in window)) return;
