@@ -16,13 +16,38 @@
    honest, since you are driving to the city either way.
    =========================================================== */
 
-function stopIsSpot(sid){ return typeof sid === 'string' && sid.indexOf('#') !== -1; }
+function stopIsSpot(sid){ return typeof sid === 'string' && sid.indexOf('#') !== -1 && sid.slice(0, 2) !== 'x:'; }
+function stopIsCustom(sid){ return typeof sid === 'string' && sid.slice(0, 2) === 'x:'; }
+
+/* A place found outside the atlas carries its own details INSIDE its
+   id, encoded. That keeps a trip a flat list of strings, so a custom
+   stop survives storage, export and — importantly — sharing, with no
+   extra table and nothing for the other person to be missing. */
+function customId(name, lat, lon, sub){
+  const json = JSON.stringify({ n: name, la: +(+lat).toFixed(5), lo: +(+lon).toFixed(5), a: sub || '' });
+  return 'x:' + btoa(unescape(encodeURIComponent(json))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function customData(sid){
+  try {
+    let b = sid.slice(2).replace(/-/g, '+').replace(/_/g, '/');
+    while (b.length % 4) b += '=';
+    return JSON.parse(decodeURIComponent(escape(atob(b))));
+  } catch(e){ return null; }
+}
 
 function spotId(placeId, index){ return placeId + '#' + index; }
 
 /* { kind, id, name, sub, lat, lon, photoId, href } or null */
 function stopInfo(sid){
   if (!sid) return null;
+
+  if (stopIsCustom(sid)){
+    const d = customData(sid);
+    if (!d) return null;
+    return { kind: 'custom', id: sid, name: d.n, sub: d.a || 'Found on the map',
+             lat: d.la, lon: d.lo, photoId: null, parent: sid,
+             href: 'https://www.google.com/maps/search/?api=1&query=' + d.la + ',' + d.lo };
+  }
 
   if (!stopIsSpot(sid)){
     const p = placeGet(sid);

@@ -227,8 +227,74 @@ live updates. The display NAME is always shown, never the email.
 Browsing: `#/map` is the map plus every state as a card; `#/state/XX` lists
 everything in that state. A state is clickable on the map itself.
 
-Not yet: in-app events and bookings (the place page links out to a live search
-meanwhile), and the AI planner.
+**Auto theme follows the sun** (`core/sun.js`): light while the sun is up where
+you are, dark once it has set, recomputed so it turns over without a reload. The
+OS dark-mode setting is a standing preference, not a time of day, so it is not
+used for this. Position comes from the time zone (an offset of -6 puts you near
+90°W) with a mid-US latitude, which lands within a few minutes of the real
+sunset — verified against NOAA figures for five cities.
+
+**Onboarding** (`pages/welcome.js`) runs after sign-up: two passes over 36
+well-known places to fill been/want quickly, skippable.
+
+**The planner can search beyond the atlas**, using Photon (OpenStreetMap) with
+Nominatim as fallback — both free and keyless. A result picked from there becomes
+a stop whose details are encoded INSIDE its id, so it survives storage, export
+and sharing with no extra table.
+
+**Trips has three tabs**: ideas (tag filters), road trips (`data/roadtrips.js` —
+twelve famous drives, each startable as a trip in one tap) and the bucket list
+(`data/bucket.js` — forty things to do, filterable by kind, cost and state).
+Every entry links to an official source rather than an aggregator, so the link
+survives and carries the real rules and prices.
+
+Attractions and restaurants are links to Google Maps, which is where the opening
+hours, phone number and reviews live — things this project should not try to
+hold. Place pages also carry "known for" callouts driven by the derived tags.
+
+**Events** are live from Ticketmaster's Discovery API (`core/events.js`), keyed
+in `config.js` alongside Supabase. Signed in, the home page shows what is on
+where you WANT to go; signed out, what is on around the country; never more than
+eight. With no key it falls back to search links rather than pretending.
+
+**Search covers everything** (`core/search.js`): one index over the 392 places
+AND the 6,000-plus attractions inside them, built lazily on first use. It drives
+both the header search box and the planner's search, so "Space Center" or
+"Alcatraz" are findable, not just the city around them.
+
+**Attraction photos are hotlinked, never downloaded.** There are thousands, so
+each is looked up on Wikipedia only when it scrolls into view, remembered for
+the session, and falls back to its icon. The places keep their downloaded
+photos; the attractions do not.
+
+**Written introductions** live in `data/longform.cities.js` and
+`data/longform.parks.js` — 96 of them, covering the 35 largest visitor cities
+and all 61 national parks. They are written by hand rather than fetched: the
+free sources give either a dictionary definition or a wall of tourist-board
+adjectives. Facts are kept to the durable kind (founding, geography, industry,
+why a place looks the way it does) and away from anything that changes with a
+season. The eight parks with no listed activities get the longest entries,
+because there the text is all there is.
+
+The place page is two columns: the reading on the left, the map and what is
+nearby pinned to the right where they can be glanced at while reading. Attraction
+cards carry a 240px image rather than a thumbnail.
+
+The planner has a **Stay & eat** tab: one row per stop with live hotel and
+restaurant searches, because prices and availability change hourly and this
+project has no business storing them.
+
+Not yet: in-app bookings, and the AI planner.
+
+## A bug worth remembering
+
+Trips used to vanish on reload once Supabase was connected. Two faults
+compounded: `cloudLoad` REPLACED the trip list with whatever the server sent, so
+an empty or failed response wiped local work and then wrote that emptiness to
+localStorage; and `cloudSync` marked a trip as synced BEFORE the upload, so one
+failed push left a trip that only ever existed in the browser. Sync now merges
+(newer side wins, local-only trips are kept and queued for upload) and only
+records success after it happens.
 
 Things-to-do and food start rich for eleven large cities and thin elsewhere.
 `tools/fetch-listings.js` closes that: Wikivoyage writes city guides as

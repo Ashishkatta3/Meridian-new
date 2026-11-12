@@ -26,7 +26,16 @@ let TRIPS = (function(){
 })();
 
 function tripsSave(){
-  try { localStorage.setItem(TRIPS_KEY, JSON.stringify(TRIPS)); } catch(e){}
+  /* A last line of defence: if something upstream ever hands us an
+     empty list while storage holds trips, keep a copy before writing,
+     so the work can be recovered rather than silently lost. */
+  try {
+    if (!TRIPS.length){
+      const prev = localStorage.getItem(TRIPS_KEY);
+      if (prev && prev.length > 4) localStorage.setItem(TRIPS_KEY + '.backup', prev);
+    }
+    localStorage.setItem(TRIPS_KEY, JSON.stringify(TRIPS));
+  } catch(e){}
   document.dispatchEvent(new CustomEvent('trips:changed'));
 }
 

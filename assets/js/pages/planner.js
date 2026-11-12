@@ -65,11 +65,19 @@ function renderTrip(id){
      + addFromRow(t)
      + '</div>';
 
+  h += '<div class="tr-tabs pg-tabs">'
+     + '<button class="tr-tab is-on" data-ptab="board">Itinerary</button>'
+     + '<button class="tr-tab" data-ptab="stay">Stay &amp; eat</button>'
+     + '</div>';
+
+  /* ---- stay & eat: one row per stop, with real booking links ---- */
+  h += '<div id="pgStay" hidden>' + stayPanel(t) + '</div>';
+
   /* the board */
-  h += '<div class="pg-board">';
+  h += '<div id="pgBoard"><div class="pg-board">';
   t.days.forEach(d => { h += dayColumn(t, d); });
   h += ideasColumn(t);
-  h += '</div>';
+  h += '</div></div>';
 
   h += '<p class="pg-note pg-share" id="shareNote"></p>';
   return h + '</section>';
@@ -158,7 +166,9 @@ function stopCard(t, pid, listId, leg, isSub, subCount){
     + (leg || '')
     + '<div class="pg-stop-in">'
     +   '<button class="pg-grip" data-drag title="Drag to move">&#10283;</button>'
-    +   '<span class="pg-stop-ph' + (isSub ? ' is-spot' : '') + '" data-pgphoto="' + p.photoId + '"></span>'
+    +   (p.photoId
+          ? '<span class="pg-stop-ph' + (isSub ? ' is-spot' : '') + '" data-pgphoto="' + p.photoId + '"></span>'
+          : '<span class="pg-stop-ph is-pin" title="Found outside the atlas">📍</span>')
     +   '<div class="pg-stop-tx">'
     +     '<a href="' + p.href + '">' + plEsc(p.name) + '</a>'
     +     '<i>' + plEsc(isSub ? (p.note ? pgClip(p.note, 58) : 'in ' + p.sub.split(',')[0]) : p.sub) + '</i>'
@@ -176,6 +186,56 @@ function stopCard(t, pid, listId, leg, isSub, subCount){
     +   '<div class="pg-note-add"><input type="text" data-noteinput="' + pid + '" placeholder="Add a note…"></div>'
     + '</div>'
     + '</article>';
+}
+
+/* Somewhere to sleep and somewhere to eat, for every stop on the
+   trip. These are live searches rather than stored listings: prices
+   and availability change by the hour and this project has no
+   business pretending to know them. */
+function stayPanel(t){
+  const stops = [];
+  t.days.forEach(d => d.stops.forEach(sid => { if (stops.indexOf(sid) === -1) stops.push(sid); }));
+  t.ideas.forEach(sid => { if (stops.indexOf(sid) === -1) stops.push(sid); });
+
+  /* one row per PLACE — hotels are booked by town, not by attraction */
+  const seen = {}, places = [];
+  stops.forEach(sid => {
+    const info = stopInfo(sid); if (!info) return;
+    const key = info.kind === 'spot' ? info.parent : sid;
+    if (seen[key]) return; seen[key] = 1; places.push({ key: key, info: info });
+  });
+
+  if (!places.length){
+    return '<div class="pg-empty"><p>Nothing on the trip yet.</p>'
+         + '<p class="pg-note">Add a few stops and places to stay and eat will show up here for each of them.</p></div>';
+  }
+
+  return '<p class="pg-note">Live searches for each stop. Dates and prices move too fast to store, '
+    + 'so these open the places that actually have them.</p>'
+    + '<div class="pg-stay">' + places.map(p => {
+        const place = placeGet(p.key);
+        const label = place ? place.name + ', ' + stateName(place.abbr) : p.info.name;
+        const q = encodeURIComponent(label);
+        const ll = place ? place.lat + ',' + place.lon : '';
+        return '<div class="pg-stayrow">'
+          + '<div class="pg-stayh">'
+          +   (place ? '<span class="pg-stayph" data-pgphoto="' + p.key + '"></span>' : '<span class="pg-stayph is-empty"></span>')
+          +   '<div><b>' + plEsc(place ? place.name : p.info.name) + '</b>'
+          +   '<i>' + plEsc(place ? stateName(place.abbr) : p.info.sub) + '</i></div>'
+          + '</div>'
+          + '<div class="pg-staylinks">'
+          +   stayLink('Hotels', 'https://www.booking.com/searchresults.html?ss=' + q, 'Booking.com')
+          +   stayLink('Also hotels', 'https://www.google.com/travel/hotels/' + q, 'Google Hotels')
+          +   stayLink('Restaurants', 'https://www.google.com/maps/search/restaurants+in+' + q, 'Google Maps')
+          +   stayLink('Coffee &amp; bars', 'https://www.google.com/maps/search/bars+and+cafes+in+' + q, 'Google Maps')
+          +   (ll ? stayLink('Open the area', 'https://www.google.com/maps/search/?api=1&query=' + ll, 'Google Maps') : '')
+          + '</div></div>';
+      }).join('') + '</div>';
+}
+
+function stayLink(label, href, host){
+  return '<a class="pg-staylink" href="' + href + '" target="_blank" rel="noopener">'
+       + '<b>' + label + '</b><span>' + host + ' ↗</span></a>';
 }
 
 function addFromRow(t){
@@ -217,6 +277,14 @@ function mountPlanner(host, tripIdOrNull){
   });
 
   const on = (sel, fn) => { const e = host.querySelector(sel); if (e) e.onclick = fn; };
+  host.querySelectorAll('[data-ptab]').forEach(b => b.onclick = () => {
+    const stay = b.dataset.ptab === 'stay';
+    host.querySelector('#pgStay').hidden = !stay;
+    host.querySelector('#pgBoard').hidden = stay;
+    host.querySelectorAll('[data-ptab]').forEach(x => x.classList.toggle('is-on', x === b));
+    if (stay) host.querySelectorAll('#pgStay [data-pgphoto]').forEach(el => pgPhoto(el, placeGet(el.dataset.pgphoto)));
+  });
+
   on('#addDay', () => { tripAddDay(id); repaint(); });
   on('#shareTrip', () => openShare(id));
   paintShareNote(host, id);
@@ -244,24 +312,91 @@ function mountPlanner(host, tripIdOrNull){
 }
 
 /* ---------- search to add ---------- */
+/* Anything in the atlas, and then anything else on earth.
+
+   The wider search uses Photon (photon.komoot.io), an open geocoder
+   over OpenStreetMap data: free, no key, no sign-up, and it sends
+   CORS headers so the browser can call it directly. Nominatim is the
+   fallback. A result picked from there becomes a stop carrying its
+   own coordinates, so a hotel or a friend's house can sit on the
+   itinerary beside a national park. */
+let PG_SEARCH_T = 0;
+
 function wireSearch(host, id, repaint){
   const box = host.querySelector('#pgSearch'), out = host.querySelector('#pgResults');
   if (!box || !out) return;
-  box.addEventListener('input', () => {
-    const q = box.value.trim().toLowerCase();
-    if (q.length < 2){ out.hidden = true; return; }
+
+  const render = (atlas, outside, searching) => {
     const t = tripGet(id);
-    const hits = PLACE_IDS.filter(pid => {
-      const p = placeGet(pid);
-      return p.name.toLowerCase().indexOf(q) !== -1 && !tripHasPlace(t, pid);
-    }).sort((a, b) => placeGet(b).prom - placeGet(a).prom).slice(0, 8);
-    out.innerHTML = hits.length
-      ? hits.map(pid => { const p = placeGet(pid);
-          return '<button data-addpid="' + pid + '">' + plEsc(p.name) + '<span>' + plEsc(stateName(p.abbr)) + '</span></button>'; }).join('')
-      : '<p class="pg-note">Nothing matching.</p>';
+    let h = '';
+    if (atlas.length){
+      h += '<div class="pg-rgroup">In the atlas</div>'
+         + atlas.map(r => '<button data-addpid="' + plEsc(r.id) + '">' + plEsc(r.name)
+             + '<span>' + plEsc(r.sub) + '</span></button>').join('');
+    }
+    if (outside && outside.length){
+      h += '<div class="pg-rgroup">Anywhere else</div>'
+         + outside.map(r => '<button data-addx="' + plEsc(customId(r.name, r.lat, r.lon, r.sub)) + '">'
+             + plEsc(r.name) + '<span>' + plEsc(r.sub) + '</span></button>').join('');
+    } else if (searching){
+      h += '<div class="pg-rgroup">Anywhere else</div><p class="pg-note">Searching…</p>';
+    }
+    if (!h) h = '<p class="pg-note">Nothing matching.</p>';
+    out.innerHTML = h;
     out.hidden = false;
-    out.querySelectorAll('[data-addpid]').forEach(b => b.onclick = () => { tripAddPlace(id, b.dataset.addpid); repaint(); });
+    /* same rule as the place page: an attraction brings its city
+       with it, so it has something to sit under on the board */
+    out.querySelectorAll('[data-addpid]').forEach(b => b.onclick = () => {
+      if (typeof addStopWithParent === 'function') addStopWithParent(id, b.dataset.addpid);
+      else tripAddPlace(id, b.dataset.addpid);
+      repaint();
+    });
+    out.querySelectorAll('[data-addx]').forEach(b => b.onclick = () => { tripAddPlace(id, b.dataset.addx); repaint(); });
+  };
+
+  box.addEventListener('input', () => {
+    const q = box.value.trim();
+    clearTimeout(PG_SEARCH_T);
+    if (q.length < 2){ out.hidden = true; return; }
+
+    const t = tripGet(id);
+    /* places AND the attractions inside them — searching only places
+       hid six thousand things to do behind the city they sit in */
+    const atlas = searchAll(q, 10).filter(r => !tripHasPlace(t, r.id)).slice(0, 7);
+
+    render(atlas, null, true);
+    /* wait for a pause in typing before troubling a public service */
+    PG_SEARCH_T = setTimeout(() => {
+      geoSearch(q).then(hits => { if (box.value.trim() === q) render(atlas, hits, false); });
+    }, 450);
   });
+}
+
+async function geoSearch(q){
+  const label = f => {
+    const p = f.properties || {};
+    const bits = [p.city || p.district || p.county, p.state, p.country].filter(Boolean);
+    return { name: p.name || p.street || q, sub: bits.join(', ') || 'Found on the map',
+             lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0] };
+  };
+  try {
+    const r = await fetch('https://photon.komoot.io/api/?limit=6&q=' + encodeURIComponent(q));
+    if (r.ok){
+      const j = await r.json();
+      const hits = (j.features || []).map(label).filter(x => x.name);
+      if (hits.length) return hits;
+    }
+  } catch(e){}
+  try {   /* fallback: Nominatim, same data, stricter about traffic */
+    const r = await fetch('https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&q=' + encodeURIComponent(q));
+    if (!r.ok) return [];
+    const j = await r.json();
+    return (j || []).map(x => ({
+      name: (x.display_name || '').split(',')[0],
+      sub: (x.display_name || '').split(',').slice(1, 3).join(',').trim() || 'Found on the map',
+      lat: +x.lat, lon: +x.lon
+    })).filter(x => x.name);
+  } catch(e){ return []; }
 }
 
 /* ---------- drag with pointer events (mouse and touch alike) ---------- */

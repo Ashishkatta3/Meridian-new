@@ -1,34 +1,39 @@
 #!/usr/bin/env node
 /* ===========================================================
-   fetch-listings.js — run on YOUR computer.
+   fetch-listings.js — fills in things to do and places to eat.
 
-   Fills in the thin part of the atlas: things to do and places to
-   eat, for the ~135 cities that currently have none.
+   Wikivoyage writes its guides as structured listings:
+       {{see  | name=... | content=... }}
+       {{eat  | name=... | content=... }}
+   which is the shape spots.js and food.js already use. This reads
+   them and merges them in.
 
-   Wikivoyage writes city guides as structured listings — "see",
-   "do", "eat", "drink" — each with a name and a description. That
-   is exactly the shape spots.js and food.js already use, so this
-   reads them from the Wikivoyage API and merges them in.
+   WHAT THE FIRST VERSION GOT WRONG
+   1. Big cities on Wikivoyage are split into DISTRICT subpages —
+      "Chicago/Loop", "Houston/Downtown" — and the parent article
+      holds almost no listings. It only ever read the parent, which
+      is why the cities that needed it most came back empty.
+   2. It only looked at cities. All 149 parks and monuments were
+      skipped, and they have good Wikivoyage articles.
+   3. It matched templates with a lazy regex, so any listing
+      containing a nested template was cut off mid-way.
 
-     see / do    -> spots.js   (things to do)
-     eat         -> food.js    (where to eat)
+   All three are fixed here: districts are discovered and read,
+   parks are included, and templates are extracted by counting
+   braces rather than guessing where they end.
 
-   It MERGES rather than overwrites: anything already written by
-   hand stays, and duplicates by name are dropped, so re-running is
-   safe and your own edits are never lost.
-
-   Everything on Wikivoyage is CC BY-SA, same as the photos, so this
-   is reusable with attribution — a credit line is written to
-   assets/js/data/LISTING-SOURCES.txt.
+   MERGES, never overwrites. Your hand-written entries win, and
+   near-duplicates ("Alcatraz" vs "Alcatraz Island") are dropped.
+   Safe to re-run.
 
    Usage (Node 18+), from the meridian folder:
+       node tools/fetch-listings.js --test TX-houston   <- START HERE
        node tools/fetch-listings.js
-       node tools/fetch-listings.js --proxy    (if Wikimedia is blocked
-                                                for you, as it was for
-                                                the photo download)
-       node tools/fetch-listings.js --limit=20 (try a few first)
+       node tools/fetch-listings.js --limit=20
+       node tools/fetch-listings.js --proxy
 
-   It is resumable: a cache file keeps what it already fetched.
+   Run the --test first: it prints exactly what it found for one
+   place, so you can see it working before it rewrites anything.
    =========================================================== */
 
 const fs = require('fs');
@@ -40,10 +45,12 @@ const DATA = path.join(ROOT, 'assets/js/data');
 const CACHE = path.join(ROOT, 'wikivoyage-cache.json');
 const UA = 'MeridianAtlas/1.0 (personal travel atlas; contact: ' + (process.env.CONTACT_EMAIL || 'you@example.com') + ')';
 const USE_PROXY = process.argv.includes('--proxy');
+const TEST = (() => { const i = process.argv.indexOf('--test'); return i !== -1 ? process.argv[i + 1] : ''; })();
 const LIMIT = (() => { const a = process.argv.find(x => x.startsWith('--limit=')); return a ? +a.slice(8) : 0; })();
-const CONCURRENCY = 3;
+const CONCURRENCY = 2;
+const MAX_SPOTS = 40, MAX_FOOD = 12, MAX_DISTRICTS = 8;
 
-/* ---- load the existing data ---- */
+/* ---------- load existing data ---------- */
 function load(file, name){
   const ctx = {}; vm.createContext(ctx);
   vm.runInContext(fs.readFileSync(path.join(DATA, file), 'utf8') + '\n;globalThis.__X = ' + name + ';', ctx);
@@ -62,181 +69,274 @@ const STATE_FULL = {AL:'Alabama',AK:'Alaska',AZ:'Arizona',AR:'Arkansas',CA:'Cali
  WV:'West Virginia',WI:'Wisconsin',WY:'Wyoming'};
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-function proxify(u){ return 'https://wsrv.nl/?url=' + u.replace(/^https?:\/\//, ''); }
+const proxify = u => 'https://wsrv.nl/?url=' + u.replace(/^https?:\/\//, '');
 
 async function getJSON(url, tries = 3){
   for (let i = 0; i < tries; i++){
-    const target = USE_PROXY ? proxify(url) : url;
     const ctl = new AbortController();
-    const to = setTimeout(() => ctl.abort(), 15000);
+    const to = setTimeout(() => ctl.abort(), 20000);
     try {
-      const r = await fetch(target, { headers: { 'User-Agent': UA, 'Accept': 'application/json' }, signal: ctl.signal });
+      const r = await fetch(USE_PROXY ? proxify(url) : url,
+        { headers: { 'User-Agent': UA, 'Accept': 'application/json' }, signal: ctl.signal });
       clearTimeout(to);
       if (r.status === 404) return null;
-      if (r.status === 429 || r.status >= 500){ await sleep(1500 * (i + 1)); continue; }
+      if (r.status === 429 || r.status >= 500){ await sleep(2000 * (i + 1)); continue; }
       if (!r.ok) return null;
       return await r.json();
-    } catch(e){ clearTimeout(to); await sleep(1000 * (i + 1)); }
+    } catch(e){ clearTimeout(to); await sleep(1200 * (i + 1)); }
   }
   return null;
 }
 
-const clean = t => (t || '').replace(/<[^>]*>/g, '').replace(/&amp;/g,'&').replace(/&quot;/g,'"')
-  .replace(/&#0?39;/g,"'").replace(/&nbsp;/g,' ').replace(/\[\d+\]/g,'').replace(/\s+/g,' ').trim();
+const clean = t => (t || '')
+  .replace(/\[\[([^\]|]*\|)?([^\]]*)\]\]/g, '$2')      /* [[link|text]] -> text */
+  .replace(/'''?/g, '')                                 /* bold / italic markup */
+  .replace(/<ref[\s\S]*?<\/ref>/gi, '')
+  .replace(/<[^>]*>/g, '')
+  .replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#0?39;/g, "'").replace(/&nbsp;/g, ' ')
+  .replace(/\{\{[^}]*\}\}/g, '')
+  .replace(/\s+/g, ' ').trim();
 
-function titles(id){
-  const [name, abbr, kind] = PLACES[id];
-  const st = STATE_FULL[abbr] || abbr;
-  return kind === 'city' ? [name, name + ' (' + st + ')', name + '/' + st] : [name, name + ' (' + st + ')'];
-}
-
-/* Wikivoyage listings live in the wikitext as {{see}} {{do}} {{eat}}
-   templates. The API gives us the raw wikitext; parsing the templates
-   is far more reliable than scraping the rendered HTML. */
-function parseListings(wikitext){
-  const out = { see: [], do: [], eat: [] };
-  if (!wikitext) return out;
-  const re = /\{\{(see|do|eat|drink|buy)\b([\s\S]*?)\}\}/gi;
-  let m;
-  while ((m = re.exec(wikitext)) !== null){
-    const type = m[1].toLowerCase();
-    const body = m[2];
-    const field = k => {
-      const f = new RegExp('\\|\\s*' + k + '\\s*=\\s*([^|}]*)', 'i').exec(body);
-      return f ? clean(f[1]) : '';
-    };
-    const name = field('name');
-    if (!name || name.length < 2) continue;
-    const content = field('content') || field('description');
-    const alt = field('alt');
-    const entry = { name: name, desc: content, alt: alt };
-    if (type === 'see' || type === 'do') out.see.push(entry);
-    else if (type === 'eat' || type === 'drink') out.eat.push(entry);
+/* ---------- template extraction, counting braces ---------- */
+function templates(wt){
+  const out = [];
+  for (let i = 0; i < wt.length - 1; i++){
+    if (wt[i] === '{' && wt[i + 1] === '{'){
+      let depth = 1, j = i + 2;
+      while (j < wt.length && depth > 0){
+        if (wt[j] === '{' && wt[j + 1] === '{'){ depth++; j += 2; continue; }
+        if (wt[j] === '}' && wt[j + 1] === '}'){ depth--; j += 2; continue; }
+        j++;
+      }
+      if (depth === 0){ out.push(wt.slice(i + 2, j - 2)); i = j - 2; }
+    }
   }
-  /* 'do' and 'see' both become things to do, in page order */
-  out.do = [];
   return out;
 }
 
-async function fetchListings(id){
-  for (const t of titles(id)){
-    const j = await getJSON('https://en.wikivoyage.org/w/api.php?action=parse&format=json&prop=wikitext&redirects=1&page='
-      + encodeURIComponent(t));
-    const wt = j && j.parse && j.parse.wikitext && j.parse.wikitext['*'];
-    if (!wt) continue;
-    const L = parseListings(wt);
+/* split on | at the top level only */
+function params(body){
+  const parts = []; let buf = '', d1 = 0, d2 = 0;
+  for (let i = 0; i < body.length; i++){
+    const c = body[i];
+    if (c === '{' && body[i + 1] === '{'){ d1++; buf += '{{'; i++; continue; }
+    if (c === '}' && body[i + 1] === '}'){ d1--; buf += '}}'; i++; continue; }
+    if (c === '[' && body[i + 1] === '['){ d2++; buf += '[['; i++; continue; }
+    if (c === ']' && body[i + 1] === ']'){ d2--; buf += ']]'; i++; continue; }
+    if (c === '|' && d1 === 0 && d2 === 0){ parts.push(buf); buf = ''; continue; }
+    buf += c;
+  }
+  parts.push(buf);
+  return parts;
+}
+
+const SEE = ['see', 'do', 'attraction', 'listing'];
+const EAT = ['eat', 'drink'];
+
+function parseListings(wt){
+  const out = { see: [], eat: [] };
+  if (!wt) return out;
+  for (const body of templates(wt)){
+    const ps = params(body);
+    let kind = (ps[0] || '').trim().toLowerCase();
+    const f = {};
+    ps.slice(1).forEach(p => {
+      const eq = p.indexOf('=');
+      if (eq === -1) return;
+      f[p.slice(0, eq).trim().toLowerCase()] = p.slice(eq + 1);
+    });
+    /* the generic {{listing}} carries its kind in a parameter */
+    if (kind === 'listing' && f.type) kind = f.type.trim().toLowerCase();
+    if (SEE.indexOf(kind) === -1 && EAT.indexOf(kind) === -1) continue;
+    if (kind === 'listing') continue;                   /* typeless listing: unusable */
+
+    const name = clean(f.name || f.alt || '');
+    if (!name || name.length < 2 || name.length > 80) continue;
+    const desc = clean(f.content || f.description || '');
+    const entry = { name: name, desc: desc };
+    if (EAT.indexOf(kind) !== -1) out.eat.push(entry); else out.see.push(entry);
+  }
+  return out;
+}
+
+/* ---------- Wikivoyage lookups ---------- */
+const API = 'https://en.wikivoyage.org/w/api.php';
+
+async function wikitext(title){
+  const j = await getJSON(API + '?action=parse&format=json&prop=wikitext&redirects=1&page=' + encodeURIComponent(title));
+  return (j && j.parse && j.parse.wikitext && j.parse.wikitext['*']) || null;
+}
+
+/* district articles live as subpages: "Chicago/Loop" */
+async function districts(title){
+  const j = await getJSON(API + '?action=query&format=json&list=allpages&aplimit=30&apprefix='
+    + encodeURIComponent(title + '/'));
+  const pages = (j && j.query && j.query.allpages) || [];
+  return pages.map(p => p.title).filter(t => !/\/(Talk|Archive)/i.test(t)).slice(0, MAX_DISTRICTS);
+}
+
+function titlesFor(id){
+  const [name, abbr, kind] = PLACES[id];
+  const st = STATE_FULL[abbr] || abbr;
+  const t = [name];
+  if (kind === 'city') t.push(name + ' (' + st + ')', name + ', ' + st);
+  else t.push(name + ' National Park', name + ' (' + st + ')');
+  return t;
+}
+
+async function fetchFor(id, verbose){
+  const report = [];
+  for (const title of titlesFor(id)){
+    const wt = await wikitext(title);
+    if (!wt){ report.push('  "' + title + '" — no article'); continue; }
+    let L = parseListings(wt);
+    report.push('  "' + title + '" — ' + L.see.length + ' see/do, ' + L.eat.length + ' eat in the main article');
+
+    /* a districted city keeps its listings in the subpages */
+    if (L.see.length + L.eat.length < 6){
+      const subs = await districts(title);
+      if (subs.length) report.push('    districts: ' + subs.join(', '));
+      for (const s of subs){
+        await sleep(300);
+        const sw = await wikitext(s);
+        if (!sw) continue;
+        const sl = parseListings(sw);
+        report.push('    "' + s + '" — ' + sl.see.length + ' see/do, ' + sl.eat.length + ' eat');
+        L.see = L.see.concat(sl.see);
+        L.eat = L.eat.concat(sl.eat);
+        if (L.see.length > MAX_SPOTS * 2) break;
+      }
+    }
+    if (verbose) report.forEach(r => console.log(r));
     if (L.see.length || L.eat.length) return L;
   }
+  if (verbose) report.forEach(r => console.log(r));
   return null;
 }
 
-/* ---- serialise back into the existing file shapes ---- */
-function writeSpots(obj){
-  const head = '/* ===========================================================\n'
-    + '   SPOTS — things to do, keyed by place id.\n'
-    + '   [ name, description, TAG ]\n'
-    + '   Hand-written entries plus listings merged from Wikivoyage\n'
-    + '   (CC BY-SA). Re-running tools/fetch-listings.js never removes\n'
-    + '   anything already here.\n'
-    + '   =========================================================== */\n\n';
-  const body = Object.keys(obj).sort().map(id =>
-    '  ' + JSON.stringify(id) + ': [\n' + obj[id].map(r => '    ' + JSON.stringify(r)).join(',\n') + '\n  ]'
-  ).join(',\n');
-  fs.writeFileSync(path.join(DATA, 'spots.js'), head + 'const SPOTS = {\n' + body + '\n};\n');
-}
-function writeFood(obj){
-  const head = '/* ===========================================================\n'
-    + '   FOOD — where to eat, keyed by place id.\n'
-    + '   [ name, dish or draw, description ]\n'
-    + '   Hand-written entries plus listings merged from Wikivoyage\n'
-    + '   (CC BY-SA).\n'
-    + '   =========================================================== */\n\n';
-  const body = Object.keys(obj).sort().map(id =>
-    '  ' + JSON.stringify(id) + ': [\n' + obj[id].map(r => '    ' + JSON.stringify(r)).join(',\n') + '\n  ]'
-  ).join(',\n');
-  fs.writeFileSync(path.join(DATA, 'food.js'), head + 'const FOOD = {\n' + body + '\n};\n');
+/* ---------- merging ---------- */
+const norm = s => s.toLowerCase().replace(/^(the|a)\s+/, '').replace(/[^a-z0-9]+/g, '');
+/* "Alcatraz" and "Alcatraz Island" are the same thing */
+function isDupe(name, seen){
+  const n = norm(name);
+  if (!n) return true;
+  for (const s of seen){
+    if (s === n) return true;
+    if (n.length > 5 && s.length > 5 && (s.indexOf(n) === 0 || n.indexOf(s) === 0)) return true;
+  }
+  return false;
 }
 
-const norm = s => s.toLowerCase().replace(/^(the|a)\s+/, '').replace(/[^a-z0-9]+/g, '');
+function writeFile(file, varName, obj, note){
+  const head = '/* ===========================================================\n   ' + note +
+    '\n   Hand-written entries plus listings merged from English\n' +
+    '   Wikivoyage (CC BY-SA 4.0). Re-running tools/fetch-listings.js\n' +
+    '   never removes anything already here.\n   =========================================================== */\n\n';
+  const body = Object.keys(obj).sort().map(id =>
+    ' ' + JSON.stringify(id) + ':[\n' + obj[id].map(r => '  ' + JSON.stringify(r)).join(',\n') + ']'
+  ).join(',\n\n');
+  fs.writeFileSync(path.join(DATA, file), head + 'const ' + varName + ' = {\n' + body + '\n};\n');
+}
 
 (async function main(){
+  /* ---------- one-place test ---------- */
+  if (TEST){
+    if (!PLACES[TEST]){ console.error('No such place id: ' + TEST); process.exit(1); }
+    console.log('Testing ' + PLACES[TEST][0] + ' (' + PLACES[TEST][1] + ')\n');
+    const L = await fetchFor(TEST, true);
+    if (!L){ console.log('\nNothing found. Try --proxy, or the article may not exist.'); process.exit(0); }
+    console.log('\nTHINGS TO DO (' + L.see.length + '):');
+    L.see.slice(0, 12).forEach(e => console.log('  • ' + e.name + (e.desc ? ' — ' + e.desc.slice(0, 90) : ' (no description)')));
+    console.log('\nFOOD (' + L.eat.length + '):');
+    L.eat.slice(0, 10).forEach(e => console.log('  • ' + e.name + (e.desc ? ' — ' + e.desc.slice(0, 90) : ' (no description)')));
+    console.log('\nLooks right? Then run the full pass:  node tools/fetch-listings.js');
+    process.exit(0);
+  }
+
   let cache = {};
   try { cache = JSON.parse(fs.readFileSync(CACHE, 'utf8')); } catch(e){}
 
-  /* Cities first — they are what is thin. Parks already have NPS data. */
-  let ids = Object.keys(PLACES).filter(id => {
-    const kind = PLACES[id][2];
-    const have = (SPOTS[id] || []).length;
-    return (kind === 'city' || kind === 'region') && have < 8 && !cache[id];
-  });
+  /* cities AND parks — parks were skipped entirely before */
+  const WANTED = ['city', 'region', 'np', 'sp', 'monument', 'rec', 'forest', 'canyon', 'beach', 'falls', 'lake', 'historic'];
+  let ids = Object.keys(PLACES).filter(id =>
+    WANTED.indexOf(PLACES[id][2]) !== -1 && (SPOTS[id] || []).length < 8 && !cache[id]);
+  /* the best-known places first, so a short run still helps most */
+  ids.sort((a, b) => (PLACES[b][5] || 0) - (PLACES[a][5] || 0));
   if (LIMIT) ids = ids.slice(0, LIMIT);
 
-  console.log(ids.length + ' places to look up on Wikivoyage'
-    + (USE_PROXY ? ' (via proxy)' : '') + '. Already cached: ' + Object.keys(cache).length + '.\n');
+  console.log(ids.length + ' places to look up' + (USE_PROXY ? ' (via proxy)' : '')
+    + '. Cached from before: ' + Object.keys(cache).length + '.');
+  console.log('Districts are followed for big cities, so this is not quick. Let it run.\n');
 
   let i = 0, found = 0;
   async function worker(){
     while (i < ids.length){
       const id = ids[i++];
-      const L = await fetchListings(id);
+      const L = await fetchFor(id, false);
       cache[id] = L || { see: [], eat: [] };
       if (L && (L.see.length || L.eat.length)){
         found++;
-        console.log('  ' + PLACES[id][0].padEnd(26) + ' see/do ' + String(L.see.length).padStart(3) + '   eat ' + String(L.eat.length).padStart(3));
+        console.log('  ' + PLACES[id][0].padEnd(26) + String(L.see.length).padStart(3) + ' to do, '
+          + String(L.eat.length).padStart(3) + ' to eat');
       }
-      if (i % 20 === 0) fs.writeFileSync(CACHE, JSON.stringify(cache));
-      await sleep(250);
+      if (i % 10 === 0) fs.writeFileSync(CACHE, JSON.stringify(cache));
+      await sleep(400);
     }
   }
   await Promise.all(Array.from({ length: CONCURRENCY }, worker));
   fs.writeFileSync(CACHE, JSON.stringify(cache));
 
-  /* ---- merge ---- */
-  let addedSpots = 0, addedFood = 0;
+  /* ---------- merge ---------- */
+  let addS = 0, addF = 0;
   for (const id of Object.keys(cache)){
     const L = cache[id]; if (!L) continue;
 
     if (L.see && L.see.length){
-      const list = SPOTS[id] ? SPOTS[id].slice() : [];
-      const seen = new Set(list.map(r => norm(r[0])));
+      const list = (SPOTS[id] || []).slice();
+      const seen = list.map(r => norm(r[0]));
       for (const e of L.see){
-        if (seen.has(norm(e.name))) continue;
-        if (list.length >= 50) break;
-        seen.add(norm(e.name));
-        list.push([e.name, (e.desc || e.alt || '').slice(0, 260), 'SEE']);
-        addedSpots++;
+        if (list.length >= MAX_SPOTS) break;
+        if (isDupe(e.name, seen)) continue;
+        seen.push(norm(e.name));
+        list.push([e.name, e.desc, 'SEE']);
+        addS++;
       }
       if (list.length) SPOTS[id] = list;
     }
-
     if (L.eat && L.eat.length){
-      const list = FOOD[id] ? FOOD[id].slice() : [];
-      const seen = new Set(list.map(r => norm(r[0])));
+      const list = (FOOD[id] || []).slice();
+      const seen = list.map(r => norm(r[0]));
       for (const e of L.eat){
-        if (seen.has(norm(e.name))) continue;
-        if (list.length >= 12) break;
-        seen.add(norm(e.name));
-        list.push([e.name, '', (e.desc || e.alt || '').slice(0, 220)]);
-        addedFood++;
+        if (list.length >= MAX_FOOD) break;
+        if (isDupe(e.name, seen)) continue;
+        seen.push(norm(e.name));
+        list.push([e.name, '', e.desc]);
+        addF++;
       }
       if (list.length) FOOD[id] = list;
     }
   }
 
-  writeSpots(SPOTS); writeFood(FOOD);
+  /* tidy the two duplicates that predate all this, while we are here */
+  for (const id of Object.keys(SPOTS)){
+    const seen = [], keep = [];
+    for (const r of SPOTS[id]){ if (isDupe(r[0], seen)) continue; seen.push(norm(r[0])); keep.push(r); }
+    SPOTS[id] = keep;
+  }
+
+  writeFile('spots.js', 'SPOTS', SPOTS, 'SPOTS — what to do, keyed by place id.  [ name, description, TAG ]');
+  writeFile('food.js', 'FOOD', FOOD, 'FOOD — where to eat, keyed by place id.  [ name, dish, description ]');
   fs.writeFileSync(path.join(DATA, 'LISTING-SOURCES.txt'),
-    'Things-to-do and food listings in spots.js and food.js were merged from\n'
-    + 'English Wikivoyage (https://en.wikivoyage.org), which is licensed\n'
-    + 'CC BY-SA 4.0. Reuse is permitted with attribution under the same licence.\n');
+    'Listings merged from English Wikivoyage (https://en.wikivoyage.org),\n' +
+    'licensed CC BY-SA 4.0. Reuse permitted with attribution under the same licence.\n');
 
   const cities = Object.keys(PLACES).filter(id => PLACES[id][2] === 'city');
-  const withSpots = cities.filter(id => (SPOTS[id] || []).length).length;
-  const with5 = cities.filter(id => (FOOD[id] || []).length >= 5).length;
+  const parks = Object.keys(PLACES).filter(id => ['np','sp','monument','rec','forest'].indexOf(PLACES[id][2]) !== -1);
   console.log('\nDone. Looked up ' + ids.length + ', found listings for ' + found + '.');
-  console.log('  things to do added : ' + addedSpots);
-  console.log('  food entries added : ' + addedFood);
-  console.log('  cities with things to do : ' + withSpots + ' / ' + cities.length);
-  console.log('  cities with 5+ food      : ' + with5 + ' / ' + cities.length);
-  console.log('\nspots.js and food.js rewritten (your hand-written entries kept).');
-  if (!found && !USE_PROXY) console.log('\nNothing came back — if Wikimedia is blocked for you, re-run with --proxy');
+  console.log('  things to do added : ' + addS);
+  console.log('  food entries added : ' + addF);
+  console.log('  cities with things : ' + cities.filter(id => (SPOTS[id] || []).length).length + ' / ' + cities.length);
+  console.log('  parks  with things : ' + parks.filter(id => (SPOTS[id] || []).length).length + ' / ' + parks.length);
+  console.log('  cities with 5+ food: ' + cities.filter(id => (FOOD[id] || []).length >= 5).length + ' / ' + cities.length);
+  if (!found) console.log('\nNothing came back. Try:  node tools/fetch-listings.js --test TX-houston');
 })();

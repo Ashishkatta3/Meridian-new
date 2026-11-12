@@ -102,11 +102,16 @@
   })();
 
   /* ---------- render ---------- */
+  /* The counters belong directly under the map — they are a summary
+     of what is on it, not a footnote at the end of the page. */
   host.innerHTML =
-      plannerBand()
+      statsSection()
+    + plannerBand()
     + potwSection(potwId)
-    + monthSection(mo, month6)
-    + statsSection();
+    + eventsSection()
+    + monthSection(mo, month6);
+
+  loadHomeEvents(host);
 
   /* photos */
   host.querySelectorAll('[data-homephoto]').forEach(el => paintHome(el, placeGet(el.dataset.homephoto)));
@@ -159,6 +164,16 @@
       + '</div></section>';
   }
 
+  /* ---------- events ---------- */
+  function eventsSection(){
+    /* the labels are filled in by loadHomeEvents once we know whether
+       there is a key and whether anyone is signed in */
+    return '<section class="wrap hm-sec" id="hmEvents"><div class="hm-h">'
+      + '<span class="lab" id="hmEvLab">What is on</span>'
+      + '<p class="hm-sub" id="hmEvSub">Loading…</p></div>'
+      + '<div class="hm-ev" id="hmEvList"></div></section>';
+  }
+
   function statsSection(){
     return '<section class="wrap hm-sec"><div class="hm-h"><span class="lab">Your atlas</span></div>'
       + '<div class="tally" id="homeStats">' + statsInner() + '</div></section>';
@@ -177,6 +192,49 @@
       [count('sp'), 'state parks']
     ];
     return rows.map(r => '<span><b>' + r[0] + '</b><i>' + r[1] + '</i></span>').join('');
+  }
+
+  /* Signed in: what is on where you want to go. Signed out: what is
+     on around the country. Never more than eight either way. */
+  async function loadHomeEvents(host){
+    const lab = host.querySelector('#hmEvLab'),
+          sub = host.querySelector('#hmEvSub'),
+          box = host.querySelector('#hmEvList');
+    if (!box) return;
+
+    const want = (typeof markedIds === 'function') ? markedIds('want') : [];
+    const mine = (typeof signedIn === 'function' && signedIn()) && want.length;
+
+    if (typeof eventsReady !== 'function' || !eventsReady()){
+      lab.textContent = mine ? 'What is on where you want to go' : 'What is on around the country';
+      sub.textContent = 'Live listings need a free Ticketmaster key in config.js.';
+      const seeds = mine ? want.slice(0, 6) : month6.slice(0, 6);
+      box.innerHTML = '<div class="hm-ev-fall">' + seeds.map(id => {
+        const p = placeGet(id); if (!p) return '';
+        return '<a href="' + eventSearchURL(p.name + ' ' + stateName(p.abbr)) + '" target="_blank" rel="noopener">'
+             + plEsc(p.name) + ' ↗</a>';
+      }).join('') + '</div>';
+      return;
+    }
+
+    lab.textContent = mine ? 'What is on where you want to go' : 'What is on around the country';
+    sub.textContent = mine ? 'From your want-to-go list.' : 'Sign in and mark places to see what is on where you are headed.';
+
+    let list = [];
+    try { list = mine ? await eventsForPlaces(want, 8) : await eventsNationwide(8); } catch(e){}
+    if (!list.length){
+      sub.textContent = 'Nothing listed just now.';
+      box.innerHTML = '';
+      return;
+    }
+    box.innerHTML = list.map(e =>
+      '<a class="hm-evc" href="' + plEsc(e.url) + '" target="_blank" rel="noopener">'
+      + (e.image ? '<span class="hm-evc-ph" style="background-image:url(\'' + plEsc(e.image) + '\')"></span>' : '<span class="hm-evc-ph is-empty"></span>')
+      + '<span class="hm-evc-tx">'
+      +   '<i>' + plEsc(evDateLabel(e)) + (e.city ? ' · ' + plEsc(e.city) : '') + '</i>'
+      +   '<b>' + plEsc(e.name) + '</b>'
+      +   (e.venue ? '<em>' + plEsc(e.venue) + '</em>' : '')
+      + '</span></a>').join('');
   }
 
   function homeIcon(kind){

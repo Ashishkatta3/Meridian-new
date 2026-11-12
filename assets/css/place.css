@@ -193,3 +193,74 @@
   .pl-thing{ flex-wrap: wrap; }
   .pl-add{ width: 100%; text-align: center; margin-top: 4px; }
 }
+
+/* attraction and restaurant names are links out to the map */
+a.pl-thing-n, a.pl-food-n{ text-decoration: none; }
+a.pl-thing-n:hover, a.pl-food-n:hover{ color: var(--want); }
+.pl-ext{ font: 500 10px/1 var(--mono); color: var(--faint); margin-left: 6px; vertical-align: 2px; }
+a.pl-thing-n:hover .pl-ext, a.pl-food-n:hover .pl-ext{ color: var(--want); }
+
+/* known-for callouts */
+.pl-calls{ display: grid; grid-template-columns: 1fr; gap: 11px; }
+@media (min-width: 680px){ .pl-calls{ grid-template-columns: repeat(2,1fr); } }
+.pl-call{ background: var(--panel-2); border: 1px solid var(--rule); border-radius: var(--r-m); padding: 15px 17px; }
+.pl-call b{ display: block; font: 600 14.5px/1.2 var(--sans); color: var(--ink); }
+.pl-call p{ margin: 6px 0 0; font: 400 13.5px/1.55 var(--sans); color: var(--muted); }
+.pl-call a{ display: inline-block; margin-top: 8px; font: 500 12px/1 var(--mono); color: var(--want); text-decoration: none; }
+.pl-call a:hover{ text-decoration: underline; }
+
+/* ===========================================================
+   TWO-COLUMN BODY
+
+   The reading lives on the left; the map and what is nearby pin to
+   the right, where they can be glanced at while reading instead of
+   hunted for after the article ends. On a phone it all stacks and
+   the map comes first, because on a small screen "where is this"
+   is the question you ask soonest.
+   =========================================================== */
+.pl-layout{ display: grid; grid-template-columns: 1fr; gap: 30px; margin-top: 30px; }
+@media (min-width: 1000px){
+  .pl-layout{ grid-template-columns: minmax(0,1fr) 330px; gap: 42px; align-items: start; }
+  .pl-right{ position: sticky; top: 76px; }
+}
+.pl-left{ min-width: 0; }
+.pl-right{ display: grid; gap: 16px; }
+.pl-rbox{ background: var(--panel); border: 1px solid var(--rule); border-radius: var(--r-m); padding: 16px 17px; }
+.pl-rbox h3{ font: 500 10px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase;
+  color: var(--muted); margin: 0 0 12px; }
+.pl-rbox .pl-mini{ margin: 0; }
+.pl-rbox .pl-near-list li:last-child{ border-bottom: 0; padding-bottom: 0; }
+.pl-rbox .pl-tagg:last-child{ margin-bottom: 0; }
+@media (max-width: 999px){ .pl-right{ order: -1; } }
+
+/* ---------- the written introduction ---------- */
+.pl-essay{ max-width: 68ch; }
+.pl-lead{ font: 400 20px/1.6 var(--serif); color: var(--ink); margin: 0 0 18px; }
+.pl-para{ font: 400 16px/1.75 var(--sans); color: var(--ink-2); margin: 0 0 18px; max-width: 68ch; }
+
+/* ---------- things to do, properly sized ---------- */
+.pl-things{ display: grid; grid-template-columns: 1fr; gap: 16px;
+  background: none; border: 0; border-radius: 0; overflow: visible; }
+.pl-thing{ display: grid; grid-template-columns: 1fr; gap: 0; align-items: stretch;
+  background: var(--panel); border: 1px solid var(--rule); border-radius: var(--r-m);
+  overflow: hidden; padding: 0; transition: border-color .16s; }
+.pl-thing:hover{ border-color: var(--faint); }
+@media (min-width: 620px){ .pl-thing{ grid-template-columns: 240px minmax(0,1fr); } }
+
+.pl-thing-ph{
+  display: block; width: 100%; height: 200px; flex: none; border: 0; border-radius: 0;
+  background: var(--panel-2) center/cover; opacity: 1;
+  display: flex; align-items: center; justify-content: center;
+}
+@media (min-width: 620px){ .pl-thing-ph{ height: 100%; min-height: 185px; } }
+.pl-thing-ph.is-on{ opacity: 1; }
+.pl-thing-ph svg{ width: 38px; height: 38px; opacity: .35; }
+
+.pl-thing-b{ padding: 18px 20px 18px; display: flex; flex-direction: column; min-width: 0; }
+.pl-thing-h{ display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 9px; }
+a.pl-thing-n{ font: 600 19px/1.25 var(--sans); color: var(--ink); }
+.pl-thing-t{ margin-left: 0; }
+.pl-things p{ margin: 0 0 14px; font: 400 15px/1.65 var(--sans); color: var(--ink-2); }
+.pl-thin{ color: var(--muted) !important; font-style: italic; }
+.pl-thing .pl-add{ align-self: flex-start; margin-top: auto; width: auto; text-align: left; }
+@media (max-width: 560px){ .pl-thing .pl-add{ width: 100%; text-align: center; } }

@@ -74,7 +74,10 @@ function mountAccount(host){
     const r = await signIn($('#inEmail').value.trim(), $('#inPass').value);
     busy(inBtn, false);
     if (r.error) return msg(r.error, true);
-    location.hash = '#/planner';
+    /* a signed-in user with an empty map has not been through the
+       picker yet, so offer it rather than dropping them on the map */
+    location.hash = (typeof markCounts === 'function' && !markCounts().been && !markCounts().want)
+      ? '#/welcome' : '#/planner';
   };
 
   const upBtn = $('#acUp');
@@ -86,7 +89,7 @@ function mountAccount(host){
     busy(upBtn, false);
     if (r.error) return msg(r.error, true);
     if (r.pending) return msg('Check your email to confirm the account, then sign in.', false);
-    location.hash = '#/planner';
+    location.hash = '#/welcome';          /* straight into the been/want picker */
   };
 
   const out = $('#acOut');

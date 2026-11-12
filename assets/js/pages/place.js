@@ -60,85 +60,104 @@ function renderPlace(id){
      +   fact('Best time to visit', plEsc(bestTimeOf(me)))
      + '</div></div>';
 
-  /* ---- story ---- */
-  const story = info.sum || me.blurb || '';
-  if (story || info.voy){
-    h += '<div class="wrap pl-cols"><div class="pl-main">';
-    if (story) h += '<p class="pl-lead">' + plEsc(story) + '</p>';
-    if (info.voy && info.voy !== story) h += '<p class="pl-voy">' + plEsc(info.voy) + '</p>';
-    const links = [];
-    if (info.wp)  links.push('<a href="' + plEsc(info.wp)  + '" target="_blank" rel="noopener">Wikipedia</a>');
-    if (info.voyp) links.push('<a href="' + plEsc(info.voyp) + '" target="_blank" rel="noopener">Wikivoyage</a>');
-    if (links.length) h += '<p class="pl-src">More: ' + links.join(' · ') + '</p>';
-    h += '</div>';
+  /* ===== the body: everything substantial on the left, the map and
+     what is near it pinned to the right, where it can be glanced at
+     while reading rather than hunted for at the bottom ===== */
+  h += '<div class="wrap pl-layout"><div class="pl-left">';
 
-    /* side rail: tags */
-    h += '<aside class="pl-rail">' + tagBlock(me) + '</aside>';
-    h += '</div>';
+  /* ---- story ---- */
+  const essay = (typeof longformOf === 'function') ? longformOf(id) : null;
+  const story = info.sum || me.blurb || '';
+  if (essay && essay.length){
+    /* a written introduction, where one exists, in place of the
+       one-line summary — a city deserves more than a caption */
+    h += '<div class="pl-essay">' + essay.map((para, i) =>
+      '<p class="' + (i === 0 ? 'pl-lead' : 'pl-para') + '">' + plEsc(para) + '</p>').join('') + '</div>';
+  } else if (story){
+    h += '<p class="pl-lead">' + plEsc(story) + '</p>';
+    if (info.voy && info.voy !== story) h += '<p class="pl-para">' + plEsc(info.voy) + '</p>';
   }
+  const links = [];
+  if (info.wp)  links.push('<a href="' + plEsc(info.wp)  + '" target="_blank" rel="noopener">Wikipedia</a>');
+  if (info.voyp) links.push('<a href="' + plEsc(info.voyp) + '" target="_blank" rel="noopener">Wikivoyage</a>');
+  if (links.length) h += '<p class="pl-src">More: ' + links.join(' · ') + '</p>';
 
   /* ---- park facts ---- */
   if (info.nps) h += parkBlock(info.nps);
 
   /* ---- things to do ---- */
   if (spots.length){
-    h += '<div class="wrap pl-sec"><h2>Things to do</h2>'
+    h += '<div class="pl-sec"><h2>Things to do</h2>'
        + '<p class="pl-note">Each of these can go on a trip of its own — a city is rarely one stop.</p>'
-       + '<ul class="pl-things">'
+       + '<div class="pl-things">'
        + spots.map((s, i) => {
            const sid = spotId(id, i);
-           return '<li class="pl-thing">'
-             + '<span class="pl-thing-ph" data-spotphoto="' + sid + '" data-kind="' + me.kind + '"></span>'
+           return '<article class="pl-thing">'
+             + '<span class="pl-thing-ph" data-spotphoto="' + sid + '" data-kind="' + me.kind
+             +   '" data-spotname="' + plEsc(s[0]) + '"></span>'
              + '<div class="pl-thing-b">'
-             +   '<span class="pl-thing-n">' + plEsc(s[0]) + '</span>'
-             +   (s[2] ? '<span class="pl-thing-t">' + plEsc(titleCase(s[2])) + '</span>' : '')
-             +   (s[1] ? '<p>' + plEsc(s[1]) + '</p>' : '')
+             +   '<div class="pl-thing-h">'
+             +     '<a class="pl-thing-n" href="' + mapsLink(s[0], me) + '" target="_blank" rel="noopener" title="Open in Google Maps">'
+             +       plEsc(s[0]) + '<span class="pl-ext">↗</span></a>'
+             +     (s[2] ? '<span class="pl-thing-t">' + plEsc(titleCase(s[2])) + '</span>' : '')
+             +   '</div>'
+             +   (s[1] ? '<p>' + plEsc(s[1]) + '</p>' : '<p class="pl-thin">Open it in Maps for hours, reviews and directions.</p>')
+             +   '<button class="pl-add" data-add="' + sid + '" title="Add to a trip">+ Add to a trip</button>'
              + '</div>'
-             + '<button class="pl-add" data-add="' + sid + '" title="Add to a trip">+ Trip</button>'
-             + '</li>';
+             + '</article>';
          }).join('')
-       + '</ul></div>';
+       + '</div></div>';
   }
 
   /* ---- food ---- */
   if (food.length){
-    h += '<div class="wrap pl-sec"><h2>Where to eat</h2><ul class="pl-food">'
+    h += '<div class="pl-sec"><h2>Where to eat</h2><ul class="pl-food">'
        + food.map(f =>
-           '<li><span class="pl-food-n">' + plEsc(f[0]) + '</span>'
+           '<li><a class="pl-food-n" href="' + mapsLink(f[0], me) + '" target="_blank" rel="noopener" title="Open in Google Maps">'
+         + plEsc(f[0]) + '<span class="pl-ext">↗</span></a>'
          + (f[1] ? '<span class="pl-food-d">' + plEsc(f[1]) + '</span>' : '')
          + (f[2] ? '<p>' + plEsc(f[2]) + '</p>' : '') + '</li>').join('')
        + '</ul></div>';
   }
 
+  /* ---- what it is known for ---- */
+  h += calloutBlock(me);
+
   /* ---- plan: outbound search links (honest, keyless) ---- */
   const q = encodeURIComponent(me.name + ', ' + stateName(me.abbr));
-  h += '<div class="wrap pl-sec"><h2>Plan a visit</h2><div class="pl-plan">'
+  h += '<div class="pl-sec"><h2>Plan a visit</h2><div class="pl-plan">'
      + planLink('Hotels', 'https://www.booking.com/searchresults.html?ss=' + q, 'Booking.com')
      + planLink('Restaurants', 'https://www.google.com/maps/search/restaurants+near+' + q, 'Google Maps')
      + planLink('Events', 'https://www.ticketmaster.com/search?q=' + encodeURIComponent(me.name), 'Ticketmaster')
      + planLink('Open in Maps', 'https://www.google.com/maps/search/?api=1&query=' + me.lat + ',' + me.lon, 'Google Maps')
      + '</div><p class="pl-note">In-app events and bookings arrive with the planner. For now these open a live search.</p></div>';
 
-  /* ---- nearby + mini map ---- */
-  const mini = (typeof miniMapHTML === 'function') ? miniMapHTML(id, near) : '';
-  if (mini){
-    h += '<div class="wrap pl-sec"><h2>Nearby</h2><div class="pl-near">'
-       + '<div class="pl-mini" id="plMini">' + mini + '</div>'
-       + '<ul class="pl-near-list">'
-       + near.map(n => '<li><a href="#/place/' + n.id + '">' + iconFor(n.kind)
-           + plEsc(n.name) + '</a><span>' + Math.round(n.miles) + ' mi</span></li>').join('')
-       + '</ul></div></div>';
-  }
-
   /* ---- drivable ---- */
   if (drive.length){
-    h += '<div class="wrap pl-sec"><h2>Within a drive</h2>'
+    h += '<div class="pl-sec"><h2>Within a drive</h2>'
        + '<p class="pl-note">Same state, or roughly eight hours or less by road.</p>'
        + '<ul class="pl-drive">'
        + drive.map(d => '<li><a href="#/place/' + d.id + '">' + iconFor(d.kind) + plEsc(d.name) + '</a>'
            + '<span>' + fmtDrive(d.hours) + ' · ' + Math.round(d.miles) + ' mi</span></li>').join('')
        + '</ul></div>';
   }
+
+  h += '</div>';                                   /* end .pl-left */
+
+  /* ===== the right rail: where this is, and what is around it ===== */
+  const mini = (typeof miniMapHTML === 'function') ? miniMapHTML(id, near) : '';
+  h += '<aside class="pl-right">';
+  if (mini){
+    h += '<div class="pl-rbox"><h3>Where it is</h3>'
+       + '<div class="pl-mini" id="plMini">' + mini + '</div></div>';
+    h += '<div class="pl-rbox"><h3>Nearby</h3><ul class="pl-near-list">'
+       + near.map(n => '<li><a href="#/place/' + n.id + '">' + iconFor(n.kind)
+           + plEsc(n.name) + '</a><span>' + Math.round(n.miles) + ' mi</span></li>').join('')
+       + '</ul></div>';
+  }
+  const tags = tagBlock(me);
+  if (tags && tags.indexOf('pl-tagg') !== -1) h += '<div class="pl-rbox">' + tags + '</div>';
+  h += '</aside></div>';                           /* end .pl-right / .pl-layout */
 
   /* ---- footer actions ---- */
   h += '<div class="wrap pl-foot"><div class="pl-acts" id="plActs2">' + markButtons(id) + itinButton(id) + '</div>'
@@ -157,6 +176,43 @@ function fact(label, val){
 }
 function titleCase(t){ return String(t).toLowerCase().replace(/\b\w/g, c => c.toUpperCase()); }
 
+/* A name on its own is a dead end. Pointed at Google Maps it becomes
+   the opening hours, the phone number, the reviews and the walk from
+   wherever you are standing — none of which we have to hold. */
+function mapsLink(name, place){
+  return 'https://www.google.com/maps/search/?api=1&query='
+    + encodeURIComponent(name + ', ' + place.name + ', ' + stateName(place.abbr));
+}
+
+/* What this place is known for, with somewhere official to go next. */
+const CALLOUTS = {
+  darksky: ['Dark skies', 'Among the darkest skies in the country — worth staying out for.',
+            'https://darksky.org/what-we-do/international-dark-sky-places/'],
+  camping: ['Camping', 'Sites here are booked through the federal system, often six months ahead.',
+            'https://www.recreation.gov/'],
+  food:    ['Known for its food', 'A city people travel to eat in, not just eat while visiting.', ''],
+  wildlife:['Wildlife', 'Animals on their own terms — keep your distance and bring optics.', ''],
+  winter:  ['Winter', 'The season it is really known for; plan around snow rather than in spite of it.', ''],
+  hiking:  ['Hiking', 'Trails are the reason to come. Check conditions before you set out.', ''],
+  roadtrip:['On a great drive', 'This sits on one of the routes worth taking slowly.', ''],
+  nightlife:['After dark', 'The evening is the point here, not an afterthought.', ''],
+  history: ['History', 'Things happened here that the rest of the country still argues about.', ''],
+  water:   ['On the water', 'Coast, lake or river — the water is why people come.', '']
+};
+
+function calloutBlock(me){
+  const t = (typeof tagsOf === 'function') ? tagsOf(me) : { flags: [] };
+  const picks = (t.flags || []).filter(f => CALLOUTS[f]).slice(0, 4);
+  if (!picks.length) return '';
+  return '<div class="pl-sec"><h2>Known for</h2><div class="pl-calls">'
+    + picks.map(f => {
+        const c = CALLOUTS[f];
+        return '<div class="pl-call"><b>' + plEsc(c[0]) + '</b><p>' + plEsc(c[1]) + '</p>'
+          + (c[2] ? '<a href="' + plEsc(c[2]) + '" target="_blank" rel="noopener">More ↗</a>' : '') + '</div>';
+      }).join('')
+    + '</div></div>';
+}
+
 function tagBlock(me){
   const groups = [['Landscape', me.land], ['Good for', me.who], ['Known for', me.flags]];
   let out = '';
@@ -170,7 +226,7 @@ function tagBlock(me){
 }
 
 function parkBlock(n){
-  let h = '<div class="wrap pl-sec pl-park"><h2>Park information</h2>';
+  let h = '<div class="pl-sec pl-park"><h2>Park information</h2>';
   if (n.desc) h += '<p class="pl-lead">' + plEsc(n.desc) + '</p>';
   h += '<div class="pl-park-grid">';
   if (n.fees && n.fees.length){
@@ -308,21 +364,94 @@ function wireActions(host){
   });
 }
 
-/* An attraction has no photo of its own until the fetch pass adds
-   one (photos.js can key a spot id the same way it keys a place),
-   so until then it shows its own icon rather than repeating the
-   city's picture, which would be misleading. */
-function paintSpotPhoto(el){
-  const sid = el.dataset.spotphoto;
-  const rec = (typeof photoLocal === 'function') && photoLocal(sid);
-  if (rec && rec.t){
-    const img = new Image();
-    img.onload = () => { el.style.backgroundImage = 'url("' + rec.t + '")'; el.classList.add('is-on'); };
-    img.src = rec.t;
-    return;
-  }
+/* Attractions have no baked-in photo — there are thousands of them,
+   so downloading one each is out of the question. Each is looked up
+   on Wikipedia the moment it scrolls into view, remembered for the
+   session, and falls back to its icon if nothing turns up. These are
+   hotlinked on purpose: unlike the places, they are never pulled
+   into the project. */
+const SPOT_PHOTO_CACHE = {};
+
+function cachedSpotPhoto(sid){
+  if (SPOT_PHOTO_CACHE[sid] !== undefined) return SPOT_PHOTO_CACHE[sid];
+  try {
+    const v = sessionStorage.getItem('spotph:' + sid);
+    if (v !== null){ SPOT_PHOTO_CACHE[sid] = v; return v; }
+  } catch(e){}
+  return undefined;
+}
+function rememberSpotPhoto(sid, url){
+  SPOT_PHOTO_CACHE[sid] = url || '';
+  try { sessionStorage.setItem('spotph:' + sid, url || ''); } catch(e){}
+}
+
+/* Wikipedia's search finds the best-matching article; pageimages
+   gives that article's lead photo. One request per attraction, once. */
+async function lookupSpotPhoto(name, place){
+  const url = 'https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*'
+    + '&generator=search&gsrlimit=1&gsrsearch=' + encodeURIComponent(name + ' ' + place.name)
+    + '&prop=pageimages&piprop=thumbnail&pithumbsize=400';
+  try {
+    const ctl = new AbortController();
+    const to = setTimeout(() => ctl.abort(), 8000);
+    const r = await fetch(url, { signal: ctl.signal });
+    clearTimeout(to);
+    if (!r.ok) return '';
+    const j = await r.json();
+    const pages = j && j.query && j.query.pages;
+    if (!pages) return '';
+    const first = pages[Object.keys(pages)[0]];
+    return (first && first.thumbnail && first.thumbnail.source) || '';
+  } catch(e){ return ''; }
+}
+
+function spotFallback(el){
+  el.classList.remove('is-on');
   el.classList.add('is-empty');
   el.innerHTML = '<svg viewBox="-12 -12 24 24" aria-hidden="true">' + placeIcon(el.dataset.kind || 'city', 18) + '</svg>';
+}
+function showSpotPhoto(el, url){
+  if (!url) return spotFallback(el);
+  const img = new Image();
+  img.onload = () => { el.innerHTML = ''; el.style.backgroundImage = 'url("' + url + '")';
+                       el.classList.remove('is-empty'); el.classList.add('is-on'); };
+  img.onerror = () => spotFallback(el);
+  img.src = url;
+}
+
+/* Only look one up once it is actually on screen: a city with forty
+   attractions must not fire forty requests the moment it opens. */
+let SPOT_OBSERVER = null;
+function paintSpotPhoto(el){
+  const sid = el.dataset.spotphoto;
+
+  const baked = (typeof photoLocal === 'function') && photoLocal(sid);
+  if (baked && baked.t) return showSpotPhoto(el, baked.t);
+
+  const seen = cachedSpotPhoto(sid);
+  if (seen !== undefined) return showSpotPhoto(el, seen);
+
+  spotFallback(el);
+  if (!('IntersectionObserver' in window)) return;
+
+  if (!SPOT_OBSERVER){
+    SPOT_OBSERVER = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (!entry.isIntersecting) return;
+        const node = entry.target;
+        SPOT_OBSERVER.unobserve(node);
+        const id = node.dataset.spotphoto;
+        const place = placeGet(id.split('#')[0]);
+        const name = node.dataset.spotname || '';
+        if (!place || !name) return;
+        lookupSpotPhoto(name, place).then(url => {
+          rememberSpotPhoto(id, url);
+          if (url) showSpotPhoto(node, url);
+        });
+      });
+    }, { rootMargin: '250px' });
+  }
+  SPOT_OBSERVER.observe(el);
 }
 
 function wireMini(host){

@@ -71,6 +71,13 @@ const MAP_STATES = [
 ];
 
 const MAP_XY = {
+  "TX-amarillo":[425.6,366.4],
+  "FL-key-largo":[823,558],
+  "CO-ouray":[333.9,298.3],
+  "MT-red-lodge":[329.3,144.7],
+  "MN-boundary-waters":[588.6,99],
+  "WI-apostle-islands":[601.7,119.2],
+  "HI-kauai":[277.9,505.9],
   "AL-birmingham":[684.6,397.7],
   "AL-huntsville":[685.7,371.9],
   "AL-montgomery":[695.7,420.8],
@@ -90,6 +97,7 @@ const MAP_XY = {
   "AR-fayetteville":[555.7,351.3],
   "CA-los-angeles":[143.9,349.5],
   "CA-san-francisco":[95.6,255.3],
+  "CA-anaheim":[148.4,355.1],
   "CA-san-diego":[155.8,381.2],
   "CA-sacramento":[114.9,242.9],
   "CA-san-jose":[101.6,266.5],
@@ -111,6 +119,7 @@ const MAP_XY = {
   "DE-dover":[852.8,250.4],
   "DE-rehoboth-beach":[861.8,257.9],
   "DC-washington":[829.8,260.6],
+  "FL-fort-lauderdale":[825.3,535.9],
   "FL-miami":[825.6,543.5],
   "FL-key-west":[799.3,572.9],
   "FL-tampa":[776.2,504.9],
@@ -261,6 +270,7 @@ const MAP_XY = {
   "TX-corpus-christi":[498.6,525.8],
   "TX-el-paso":[338.5,432.4],
   "UT-salt-lake-city":[275.1,231],
+  "UT-natural-bridges-national-monument":[294.5,302],
   "UT-moab":[305,282.7],
   "UT-park-city":[280.8,234.3],
   "UT-springdale":[244.5,302.5],

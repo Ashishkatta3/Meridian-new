@@ -45,15 +45,37 @@ async function cloudLoad(){
   try {
     const { data, error } = await sb.from('trips').select('*').order('updated_at', { ascending: false });
     if (error) throw error;
-    TRIPS = (data || []).map(rowToTrip);
+
+    /* MERGE, never replace.
+
+       Replacing was destroying work: a trip made before signing in,
+       or one whose upload failed, exists only in this browser. If the
+       server's answer simply overwrote the list, that trip vanished —
+       and the empty list was then written to localStorage, so it was
+       gone for good. Instead: remote rows win where they are newer,
+       local-only trips are kept and pushed up. */
+    const remote = (data || []).map(rowToTrip);
+    const byId = {};
+    for (const t of TRIPS) byId[t.id] = t;
+    for (const r of remote){
+      const mine = byId[r.id];
+      byId[r.id] = (mine && (mine.updated || 0) > (r.updated || 0)) ? mine : r;
+    }
+    TRIPS = Object.keys(byId).map(k => byId[k]).sort((a, b) => (b.updated || 0) - (a.updated || 0));
+
+    /* anything the server has not got yet is unsynced, so leave it out
+       of CLOUD_SEEN and the next sync will upload it */
     CLOUD_SEEN = {};
-    TRIPS.forEach(t => CLOUD_SEEN[t.id] = t.updated);
+    remote.forEach(r => { if (byId[r.id] === r) CLOUD_SEEN[r.id] = r.updated; });
+
     try { localStorage.setItem(TRIPS_KEY, JSON.stringify(TRIPS)); } catch(e){}
   } catch(e){
-    console.warn('Meridian: could not load trips —', e.message || e);
+    /* a failed load must change nothing — the local copy stands */
+    console.warn('Meridian: could not load trips, keeping the local copy —', e.message || e);
   }
   CLOUD_BUSY = false;
   document.dispatchEvent(new CustomEvent('trips:changed'));
+  cloudSync();                       /* push anything the server is missing */
 }
 
 /* ---------- push whatever just changed ---------- */
@@ -68,13 +90,20 @@ async function cloudSync(){
   /* new or edited */
   for (const t of TRIPS){
     if (CLOUD_SEEN[t.id] === t.updated) continue;
-    CLOUD_SEEN[t.id] = t.updated;
     try {
       const { error } = await sb.from('trips').upsert(tripToRow(t, me.id), { onConflict: 'id' });
-      if (error) console.warn('Meridian: trip not saved —', error.message);
-    } catch(e){ console.warn('Meridian: trip not saved —', e.message); }
+      if (error){
+        /* Do NOT record it as synced. Marking first meant one failed
+           upload made the trip look saved forever, and it was only
+           ever in this browser. Left unmarked, the next change or the
+           next sign-in tries again. */
+        console.warn('Meridian: trip not saved, will retry —', error.message);
+        continue;
+      }
+      CLOUD_SEEN[t.id] = t.updated;
+    } catch(e){ console.warn('Meridian: trip not saved, will retry —', e.message); }
   }
-  /* deleted */
+  /* deleted here, so delete there — but only ones we know were synced */
   for (const id of Object.keys(CLOUD_SEEN)){
     if (now[id] !== undefined) continue;
     delete CLOUD_SEEN[id];

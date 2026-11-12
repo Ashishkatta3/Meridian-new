@@ -49,6 +49,9 @@
     if (hash === '/trips' && typeof mountTrips === 'function'){
       mountTrips(page); view('trips'); return;
     }
+    if (hash === '/welcome' && typeof mountWelcome === 'function'){
+      mountWelcome(page); view('account'); return;
+    }
     if (hash === '/account' && typeof mountAccount === 'function'){
       mountAccount(page); view('account'); return;
     }

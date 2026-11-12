@@ -12,12 +12,12 @@
 
 <!-- Stylesheets are split by concern. Bump ?v= on every deploy or a
      phone will hold an old copy of one file next to a new copy of another. -->
-<link rel="stylesheet" href="assets/css/tokens.css?v=9">
-<link rel="stylesheet" href="assets/css/base.css?v=9">
-<link rel="stylesheet" href="assets/css/map.css?v=9">
-<link rel="stylesheet" href="assets/css/place.css?v=9">
-<link rel="stylesheet" href="assets/css/home.css?v=9">
-<link rel="stylesheet" href="assets/css/pages.css?v=9">
+<link rel="stylesheet" href="assets/css/tokens.css?v=13">
+<link rel="stylesheet" href="assets/css/base.css?v=13">
+<link rel="stylesheet" href="assets/css/map.css?v=13">
+<link rel="stylesheet" href="assets/css/place.css?v=13">
+<link rel="stylesheet" href="assets/css/home.css?v=13">
+<link rel="stylesheet" href="assets/css/pages.css?v=13">
 </head>
 <body>
 
@@ -34,6 +34,11 @@
     <a href="#/planner" data-nav="planner">Plan a trip</a>
     <a href="#/account" data-nav="account" id="acLink">Account</a>
   </nav>
+
+  <div class="navsearch">
+    <input id="navq" type="search" placeholder="Search any place or thing to do…" autocomplete="off" aria-label="Search">
+    <div class="navsearch-out" id="navout" hidden></div>
+  </div>
 
   <span class="top-sp"></span>
   <button class="tbtn" id="themebtn" type="button">Theme</button>
@@ -81,38 +86,47 @@
 
 <!-- Load order matters: vocabulary, then data, then the pieces that
      read it, then boot. geo.us.js is generated; the rest is hand-edited. -->
-<script src="assets/js/data/taxonomy.js?v=9"></script>
-<script src="assets/js/data/places.js?v=9"></script>
-<script src="assets/js/data/spots.js?v=9"></script>
-<script src="assets/js/data/food.js?v=9"></script>
-<script src="assets/js/data/info.js?v=9"></script>
-<script src="assets/js/data/photos.js?v=9"></script>
-<script src="assets/js/data/geo.us.js?v=9"></script>
+<script src="assets/js/data/taxonomy.js?v=13"></script>
+<script src="assets/js/data/places.js?v=13"></script>
+<script src="assets/js/data/spots.js?v=13"></script>
+<script src="assets/js/data/food.js?v=13"></script>
+<script src="assets/js/data/info.js?v=13"></script>
+<script src="assets/js/data/photos.js?v=13"></script>
+<script src="assets/js/data/roadtrips.js?v=13"></script>
+<script src="assets/js/data/bucket.js?v=13"></script>
+<script src="assets/js/data/longform.cities.js?v=13"></script>
+<script src="assets/js/data/longform.parks.js?v=13"></script>
+<script src="assets/js/data/longform.js?v=13"></script>
+<script src="assets/js/data/geo.us.js?v=13"></script>
 
-<script src="assets/js/core/config.js?v=9"></script>
-<script src="assets/js/core/auth.js?v=9"></script>
-<script src="assets/js/core/state.js?v=9"></script>
-<script src="assets/js/core/geo.js?v=9"></script>
-<script src="assets/js/core/tags.js?v=9"></script>
-<script src="assets/js/core/itin.js?v=9"></script>
-<script src="assets/js/core/stops.js?v=9"></script>
-<script src="assets/js/core/pick.js?v=9"></script>
-<script src="assets/js/core/trips.js?v=9"></script>
-<script src="assets/js/core/cloud.js?v=9"></script>
-<script src="assets/js/core/photos.js?v=9"></script>
+<script src="assets/js/core/config.js?v=13"></script>
+<script src="assets/js/core/auth.js?v=13"></script>
+<script src="assets/js/core/sun.js?v=13"></script>
+<script src="assets/js/core/events.js?v=13"></script>
+<script src="assets/js/core/search.js?v=13"></script>
+<script src="assets/js/core/state.js?v=13"></script>
+<script src="assets/js/core/geo.js?v=13"></script>
+<script src="assets/js/core/tags.js?v=13"></script>
+<script src="assets/js/core/itin.js?v=13"></script>
+<script src="assets/js/core/stops.js?v=13"></script>
+<script src="assets/js/core/pick.js?v=13"></script>
+<script src="assets/js/core/trips.js?v=13"></script>
+<script src="assets/js/core/cloud.js?v=13"></script>
+<script src="assets/js/core/photos.js?v=13"></script>
 
-<script src="assets/js/map/icons.js?v=9"></script>
-<script src="assets/js/map/usmap.js?v=9"></script>
-<script src="assets/js/map/mini.js?v=9"></script>
+<script src="assets/js/map/icons.js?v=13"></script>
+<script src="assets/js/map/usmap.js?v=13"></script>
+<script src="assets/js/map/mini.js?v=13"></script>
 
-<script src="assets/js/pages/place.js?v=9"></script>
-<script src="assets/js/pages/home.js?v=9"></script>
-<script src="assets/js/pages/planner.js?v=9"></script>
-<script src="assets/js/pages/trips.js?v=9"></script>
-<script src="assets/js/pages/states.js?v=9"></script>
-<script src="assets/js/pages/account.js?v=9"></script>
+<script src="assets/js/pages/place.js?v=13"></script>
+<script src="assets/js/pages/home.js?v=13"></script>
+<script src="assets/js/pages/planner.js?v=13"></script>
+<script src="assets/js/pages/trips.js?v=13"></script>
+<script src="assets/js/pages/states.js?v=13"></script>
+<script src="assets/js/pages/account.js?v=13"></script>
+<script src="assets/js/pages/welcome.js?v=13"></script>
 
-<script src="assets/js/app.js?v=9"></script>
-<script src="assets/js/core/router.js?v=9"></script>
+<script src="assets/js/app.js?v=13"></script>
+<script src="assets/js/core/router.js?v=13"></script>
 </body>
 </html>

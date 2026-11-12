@@ -12,6 +12,13 @@
    =========================================================== */
 
 const PLACES = {
+  "TX-amarillo": ["Amarillo","TX","city",35.22,-101.83,4,["urban"],[],[],""],
+  "FL-key-largo": ["Key Largo","FL","city",25.09,-80.45,5,["urban","island"],[],[],""],
+  "CO-ouray": ["Ouray","CO","city",38.02,-107.67,5,["urban","mountain"],[],[],""],
+  "MT-red-lodge": ["Red Lodge","MT","city",45.19,-109.25,4,["urban","mountain"],[],[],""],
+  "MN-boundary-waters": ["Boundary Waters","MN","rec",47.95,-91.5,7,["water","forest"],[],[],""],
+  "WI-apostle-islands": ["Apostle Islands","WI","rec",46.95,-90.66,6,["water","island"],[],[],""],
+  "HI-kauai": ["Kauai","HI","region",22.06,-159.53,8,["island","beach"],[],[],""],
   "AL-birmingham": ["Birmingham","AL","city",33.52,-86.8,6,["urban"],[],[],""],
   "AL-huntsville": ["Huntsville","AL","city",34.73,-86.59,4,["urban"],[],[],""],
   "AL-montgomery": ["Montgomery","AL","city",32.38,-86.3,4,["urban"],[],[],""],
@@ -31,6 +38,7 @@ const PLACES = {
   "AR-fayetteville": ["Fayetteville","AR","city",36.06,-94.16,4,["urban"],[],[],""],
   "CA-los-angeles": ["Los Angeles","CA","city",34.05,-118.24,10,["urban"],[],["food"],""],
   "CA-san-francisco": ["San Francisco","CA","city",37.77,-122.42,10,["urban"],[],["food"],""],
+  "CA-anaheim": ["Anaheim","CA","city",33.84,-117.91,8,["urban"],[],[],""],
   "CA-san-diego": ["San Diego","CA","city",32.72,-117.16,9,["urban"],[],[],""],
   "CA-sacramento": ["Sacramento","CA","city",38.58,-121.49,4,["urban"],[],[],""],
   "CA-san-jose": ["San Jose","CA","city",37.34,-121.89,4,["urban"],[],[],""],
@@ -52,6 +60,7 @@ const PLACES = {
   "DE-dover": ["Dover","DE","city",39.16,-75.52,4,["urban"],[],[],""],
   "DE-rehoboth-beach": ["Rehoboth Beach","DE","city",38.72,-75.08,4,["urban"],[],[],""],
   "DC-washington": ["Washington","DC","city",38.91,-77.04,10,["urban"],[],[],""],
+  "FL-fort-lauderdale": ["Fort Lauderdale","FL","city",26.12,-80.14,7,["urban","beach"],[],[],""],
   "FL-miami": ["Miami","FL","city",25.76,-80.19,10,["urban"],[],[],""],
   "FL-key-west": ["Key West","FL","city",24.56,-81.78,9,["urban"],[],[],""],
   "FL-tampa": ["Tampa","FL","city",27.95,-82.46,8,["urban"],[],[],""],
@@ -202,6 +211,7 @@ const PLACES = {
   "TX-corpus-christi": ["Corpus Christi","TX","city",27.8,-97.4,4,["urban"],[],[],""],
   "TX-el-paso": ["El Paso","TX","city",31.76,-106.49,4,["urban"],[],[],""],
   "UT-salt-lake-city": ["Salt Lake City","UT","city",40.76,-111.89,6,["urban"],[],[],""],
+  "UT-natural-bridges-national-monument": ["Natural Bridges","UT","monument",37.6,-110.01,6,[],[],[],""],
   "UT-moab": ["Moab","UT","city",38.57,-109.55,9,["urban"],[],[],""],
   "UT-park-city": ["Park City","UT","city",40.65,-111.5,4,["urban"],[],[],""],
   "UT-springdale": ["Springdale","UT","city",37.19,-112.99,6,["urban"],[],[],""],

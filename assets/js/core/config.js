@@ -17,8 +17,15 @@
      Project Settings -> API -> Project URL, and "anon public".
    =========================================================== */
 
-const SUPABASE_URL = 'https://dvssvxavmubnxzaobeiv.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_Ojsf1S_G0KYqIsPv0zhxxg_3d0kMFUi';
+const SUPABASE_URL = '';
+const SUPABASE_ANON_KEY = '';
+
+/* Ticketmaster Discovery API — powers the events on the home page.
+   Free, and a browser key like the one above: sign up at
+   https://developer.ticketmaster.com/ and copy the "Consumer Key".
+   Leave it empty and the events section shows search links instead
+   of live listings. */
+const TICKETMASTER_KEY = '';
 
 /* true once both are filled in */
 function cloudReady(){
