@@ -17,8 +17,8 @@
      Project Settings -> API -> Project URL, and "anon public".
    =========================================================== */
 
-const SUPABASE_URL = 'https://hciogvlecbfvngutbiuu.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_3PCTm7xH6IejrXq8RlLNsA_3-0d3psl';
+const SUPABASE_URL = 'https://dvssvxavmubnxzaobeiv.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_Ojsf1S_G0KYqIsPv0zhxxg_3d0kMFUi';
 
 /* true once both are filled in */
 function cloudReady(){
