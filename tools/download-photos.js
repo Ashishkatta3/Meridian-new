@@ -1,34 +1,27 @@
 #!/usr/bin/env node
 /* ===========================================================
-   download-photos.js — run on YOUR computer. Safe to re-run.
+   download-photos.js — saves every photo into the project.
 
-   Pulls every photo Meridian uses down into the project and
-   rewrites photos.js to point at the local copies, so the site
-   loads pictures from disk: nothing to block, works offline.
+   Run tools/fix-photo-urls.js first if photos are not showing in
+   the browser. This downloads whatever URLs are in your data.
 
-   WHY A PROXY: on some machines Wikimedia (upload.wikimedia.org)
-   is blocked below the browser — by antivirus, a DNS filter, or a
-   VPN — so even Node cannot fetch it, while other hosts work fine.
-   To get around that, each image is tried directly first and, if
-   that fails, again through wsrv.nl, a free image proxy that
-   fetches the file on its end and hands it back. If your machine
-   can reach the proxy, the download works even when Wikimedia is
-   blocked for you.
+   IT IS PATIENT ON PURPOSE. Wikimedia rate-limits bulk downloads
+   and answers 403 when you go too fast. The fix is not a trick, it
+   is manners: a gentle pace, and when a 403 comes, wait and try the
+   same image again rather than giving up on it. Left to run it will
+   work through the whole set; it just takes a few minutes.
 
-   It NEVER leaves photos.js broken: any image it cannot fetch keeps
-   its original web URL, so that place simply falls back to
-   hotlinking instead of pointing at a missing file.
+   It downloads the same thumbnail URLs your browser already loads
+   successfully, so it mirrors what provably works, and only falls
+   back to an image CDN for anything that still will not come.
 
-   Saves two sizes per place:
-       assets/img/places/<id>-h.jpg   ~1100px hero
-       assets/img/places/<id>-t.jpg   ~480px  thumbnail
-   and writes assets/img/places/CREDITS.txt with every author and
-   licence (that is what keeps the CC BY / CC BY-SA photos legal).
+   Resumable: already-saved files are skipped, so stop and re-run
+   freely. Anything it truly cannot get keeps its web URL, so the
+   site is always usable.
 
    Usage (Node 18+), from the meridian folder:
        node tools/download-photos.js
-       node tools/download-photos.js --direct    (skip the proxy)
-       node tools/download-photos.js --proxy     (skip trying direct)
+       node tools/download-photos.js --fast    (quicker, more 403s)
    =========================================================== */
 
 const fs = require('fs');
@@ -40,48 +33,67 @@ const DATA = path.join(ROOT, 'assets/js/data/photos.js');
 const REMOTE = path.join(ROOT, 'assets/js/data/photos.remote.js');
 const IMGDIR = path.join(ROOT, 'assets/img/places');
 const REL = 'assets/img/places';
-const UA = 'MeridianAtlas/1.0 (personal travel atlas; contact: ' + (process.env.CONTACT_EMAIL || 'you@example.com') + ')';
-const CONCURRENCY = 4;
-const FORCE = process.argv.includes('--direct') ? 'direct' : process.argv.includes('--proxy') ? 'proxy' : '';
+const UA = 'MeridianAtlas/1.0 (personal travel atlas; +https://github.com; contact: ' + (process.env.CONTACT_EMAIL || 'you@example.com') + ')';
 
-/* ---- find the real (web-URL) source of truth ----
-   Prefer photos.remote.js if it exists: that is the un-rewritten
-   original, so re-running after a partial download starts clean. */
+/* gentle by default: two at a time, a breath between each. --fast
+   doubles up and shortens the pause for people whose network is not
+   being throttled. */
+const FAST = process.argv.includes('--fast');
+const CONCURRENCY = FAST ? 4 : 2;
+const PAUSE = FAST ? 120 : 350;              // ms between requests per worker
+const BACKOFFS = [4000, 12000, 30000];       // waits after a 403/429 before retrying
+
+function noproto(u){ return u.split('?')[0].replace(/^https?:\/\//, ''); }
+const CDN = (u, w) => 'https://wsrv.nl/?url=' + noproto(u) + '&w=' + w + '&output=jpg&q=82&n=-1';
+
+/* ---------- load URLs from whichever file actually has web addresses ---------- */
 function loadPHOTOS(file){
-  const ctx = {}; vm.createContext(ctx);
-  vm.runInContext(fs.readFileSync(file, 'utf8') + '\n;globalThis.__PH = PHOTOS;', ctx);
-  return ctx.__PH;
-}
-let srcFile = fs.existsSync(REMOTE) ? REMOTE : DATA;
-const PHOTOS = loadPHOTOS(srcFile);
-const ids = Object.keys(PHOTOS);
-if (!ids.length){ console.error('No photo entries found.'); process.exit(1); }
-
-/* is the source already localised? only a problem if there is no remote backup */
-if (!fs.existsSync(REMOTE) && /^assets\/img\//.test(PHOTOS[ids[0]].s || '')){
-  console.error('photos.js already points at local files and no photos.remote.js backup exists.');
-  console.error('Nothing to pull from. If you meant to re-download, restore the web-URL version first.');
-  process.exit(1);
-}
-console.log('Source of image URLs: ' + path.basename(srcFile));
-
-fs.mkdirSync(IMGDIR, { recursive: true });
-const sleep = ms => new Promise(r => setTimeout(r, ms));
-let ORDER = FORCE === 'direct' ? ['direct'] : FORCE === 'proxy' ? ['proxy'] : ['direct', 'proxy'];
-let flipped = false;
-
-function proxify(url){ return 'https://wsrv.nl/?url=' + url.replace(/^https?:\/\//, '') + '&n=-1'; }
-
-async function tryFetch(url, ms){
-  const ctl = new AbortController();
-  const to = setTimeout(() => ctl.abort(), ms || 12000);
-  try {
-    const r = await fetch(url, { headers: { 'User-Agent': UA, 'Accept': 'image/*' }, signal: ctl.signal });
-    if (!r.ok) return null;
-    const buf = Buffer.from(await r.arrayBuffer());
-    return buf.length > 1000 ? buf : null;
+  try { const ctx = {}; vm.createContext(ctx);
+    vm.runInContext(fs.readFileSync(file, 'utf8') + '\n;globalThis.__PH = PHOTOS;', ctx);
+    return ctx.__PH || null;
   } catch(e){ return null; }
-  finally { clearTimeout(to); }
+}
+const webCount = ph => !ph ? -1 : Object.keys(ph).filter(k => /^https?:\/\//.test((ph[k] || {}).s || '')).length;
+
+const fromData = fs.existsSync(DATA) ? loadPHOTOS(DATA) : null;
+const fromRemote = fs.existsSync(REMOTE) ? loadPHOTOS(REMOTE) : null;
+const nData = webCount(fromData), nRemote = webCount(fromRemote);
+let PHOTOS, srcName;
+if (nData >= nRemote && nData > 0){ PHOTOS = fromData; srcName = 'photos.js'; }
+else if (nRemote > 0){ PHOTOS = fromRemote; srcName = 'photos.remote.js'; }
+else { console.error('No web photo URLs in photos.js or photos.remote.js. Run: node tools/fix-photo-urls.js'); process.exit(1); }
+const ids = Object.keys(PHOTOS);
+if (srcName === 'photos.js') fs.writeFileSync(REMOTE, fs.readFileSync(DATA, 'utf8'));
+fs.mkdirSync(IMGDIR, { recursive: true });
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+let throttleHits = 0, firstHardFail = null;
+
+/* one request, retrying the SAME url on 403/429 with growing waits */
+async function get(url){
+  for (let attempt = 0; attempt <= BACKOFFS.length; attempt++){
+    const ctl = new AbortController();
+    const to = setTimeout(() => ctl.abort(), 30000);
+    try {
+      const r = await fetch(url, { headers: {
+        'User-Agent': UA, 'Accept': 'image/avif,image/webp,image/*,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9', 'Referer': 'https://en.wikipedia.org/'
+      }, signal: ctl.signal });
+      clearTimeout(to);
+      if (r.ok){ const b = Buffer.from(await r.arrayBuffer()); if (b.length > 1000) return b; return null; }
+      if ((r.status === 403 || r.status === 429) && attempt < BACKOFFS.length){
+        throttleHits++; await sleep(BACKOFFS[attempt]); continue;        // slow down and try again
+      }
+      if (!firstHardFail) firstHardFail = { url, status: r.status };
+      return null;
+    } catch(e){
+      clearTimeout(to);
+      if (attempt < BACKOFFS.length){ await sleep(BACKOFFS[attempt]); continue; }
+      if (!firstHardFail) firstHardFail = { url, status: (e.cause && e.cause.code) || e.name };
+      return null;
+    }
+  }
+  return null;
 }
 
 function extFor(buf){
@@ -90,67 +102,52 @@ function extFor(buf){
   return '.jpg';
 }
 
-/* download one url to <base><ext>; returns the saved relative path or null */
-async function grab(url, base){
-  for (const e of ['.jpg', '.png', '.webp'])              // already there?
+/* save thumbUrl to <base>; if it will not come, let the CDN resize
+   the original instead */
+async function grab(thumbUrl, origUrl, w, base){
+  for (const e of ['.jpg', '.png', '.webp'])
     if (fs.existsSync(path.join(IMGDIR, base + e))) return REL + '/' + base + e;
 
-  for (const method of ORDER){
-    const u = method === 'direct' ? url : proxify(url);
-    let buf = null;
-    for (let i = 0; i < 2 && !buf; i++){ buf = await tryFetch(u); if (!buf) await sleep(400); }
-    if (buf){
-      // once the proxy rescues a direct failure, prefer it for the rest
-      if (method === 'proxy' && !flipped && ORDER[0] === 'direct'){ ORDER = ['proxy', 'direct']; flipped = true; }
-      const file = base + extFor(buf);
-      fs.writeFileSync(path.join(IMGDIR, file), buf);
-      return REL + '/' + file;
-    }
-  }
-  return null;
+  let buf = thumbUrl ? await get(thumbUrl) : null;
+  if (!buf && origUrl) buf = await get(CDN(origUrl, w));
+  if (!buf) return null;
+  const file = base + extFor(buf);
+  fs.writeFileSync(path.join(IMGDIR, file), buf);
+  return REL + '/' + file;
 }
 
 (async function main(){
-  // back up the web-URL version once, before we rewrite photos.js
-  if (!fs.existsSync(REMOTE)){ fs.writeFileSync(REMOTE, fs.readFileSync(srcFile, 'utf8'));
-    console.log('Backed up the web-URL version to photos.remote.js'); }
-
-  console.log('Fetching ' + ids.length + ' places (two sizes each). Trying: ' + ORDER.join(' then ') + '.\n');
+  const already = fs.readdirSync(IMGDIR).filter(f => /-h\.(jpg|png|webp)$/.test(f)).length;
+  console.log('URLs from ' + srcName + '. ' + ids.length + ' places, ' + already + ' already downloaded.');
+  console.log('Pace: ' + CONCURRENCY + ' at a time' + (FAST ? ' (fast)' : ', gentle — this is the patient setting') + '.\n');
 
   const out = {};
-  let i = 0, localHero = 0, stillRemote = 0;
+  let i = 0, local = 0, web = 0, done = 0;
 
   async function worker(){
     while (i < ids.length){
       const id = ids[i++]; const p = PHOTOS[id];
-      const hero  = await grab(p.s, id + '-h');
-      const thumb = await grab(p.t, id + '-t') || hero;
-      out[id] = {
-        t: thumb || p.t, s: hero || p.s, f: hero || p.f || p.s,     // local if we got it, else keep the web URL
-        by: p.by || '', lic: p.lic || '', u: p.u || '', src: p.src || 'wikimedia'
-      };
-      if (hero){ localHero++; } else { stillRemote++; }
-      const n = localHero + stillRemote;
-      if (n % 25 === 0) console.log('  ' + n + '/' + ids.length + '  (' + localHero + ' local, ' + stillRemote + ' still web)');
-      await sleep(60);
+      const orig = p.f || p.s;
+      const hero  = await grab(p.s, orig, 1200, id + '-h');
+      const thumb = await grab(p.t, orig, 480,  id + '-t') || hero;
+      out[id] = { t: thumb || p.t, s: hero || p.s, f: p.f || p.s,
+                  by: p.by || '', lic: p.lic || '', u: p.u || '', src: p.src || 'wikimedia' };
+      if (hero) local++; else web++;
+      if (++done % 25 === 0)
+        console.log('  ' + done + '/' + ids.length + '  (' + local + ' local, ' + web + ' still web'
+          + (throttleHits ? ', ' + throttleHits + ' throttle-waits' : '') + ')');
+      await sleep(PAUSE);
     }
   }
   await Promise.all(Array.from({ length: CONCURRENCY }, worker));
 
-  /* rewrite photos.js: local where we have it, web URL where we do not */
-  const banner = '/* ===========================================================\n'
-    + '   PHOTOS — GENERATED. Images that downloaded live under\n'
-    + '   assets/img/places/ and load from disk. Any that could not be\n'
-    + '   fetched keep their web URL and fall back to hotlinking, so\n'
-    + '   this file is always usable. Re-run tools/download-photos.js\n'
-    + '   to pick up the rest. Web-URL original: photos.remote.js.\n'
-    + '   =========================================================== */\n';
+  const banner = '/* PHOTOS — GENERATED. Downloaded images are under assets/img/places/\n'
+    + '   and load from disk. Any not fetched keep their web URL. Credits: CREDITS.txt. */\n';
   fs.writeFileSync(DATA, banner + 'const PHOTOS = ' + JSON.stringify(out) + ';\n'
     + 'function photoLocal(id){ return (typeof PHOTOS!=="undefined" && PHOTOS[id]) || null; }\n');
 
-  const lines = ['MERIDIAN — PHOTO CREDITS', '',
-    'Reused under licences that permit reuse, commercial included.',
-    'Attribution is required for the CC BY and CC BY-SA images.', ''];
+  const lines = ['MERIDIAN — PHOTO CREDITS', '', 'Reused under licences that permit reuse, commercial included.',
+    'Attribution required for CC BY / CC BY-SA.', ''];
   Object.keys(out).sort().forEach(id => { const p = out[id];
     lines.push(id, '   author : ' + (p.by || '(not stated)'), '   licence: ' + (p.lic || '(see source)'), '   source : ' + (p.u || ''), ''); });
   fs.writeFileSync(path.join(IMGDIR, 'CREDITS.txt'), lines.join('\n'));
@@ -158,13 +155,14 @@ async function grab(url, base){
   let bytes = 0, files = 0;
   for (const f of fs.readdirSync(IMGDIR)){ if (f === 'CREDITS.txt') continue; bytes += fs.statSync(path.join(IMGDIR, f)).size; files++; }
   console.log('\nDone.');
-  console.log('  downloaded local : ' + localHero + ' / ' + ids.length + ' places  (' + files + ' files, ' + (bytes/1048576).toFixed(1) + ' MB)');
-  console.log('  still on the web : ' + stillRemote + ' (these keep hotlinking)');
-  if (stillRemote > localHero){
-    console.log('\n  Most images still failed. The proxy may be blocked too. Try, on this machine:');
-    console.log('     curl -I "https://wsrv.nl/?url=upload.wikimedia.org/wikipedia/commons/thumb/1/17/Birmingham%2C_Alabama.jpg/480px-Birmingham%2C_Alabama.jpg"');
-    console.log('  If that hangs or errors, the block is on your whole network (DNS filter / antivirus / VPN).');
+  console.log('  downloaded : ' + local + ' / ' + ids.length + ' places (' + files + ' files, ' + (bytes / 1048576).toFixed(1) + ' MB)');
+  console.log('  still web  : ' + web + (throttleHits ? '   · ' + throttleHits + ' throttle-waits along the way' : ''));
+  if (web){
+    console.log('\n  ' + web + ' did not come down this run. They still work online.');
+    console.log('  Just run it again — it skips what it has and keeps going:');
+    console.log('     node tools/download-photos.js');
+    if (firstHardFail) console.log('  (a non-throttle failure example: HTTP ' + firstHardFail.status + ')');
   } else {
-    console.log('\n  Reload the site — the downloaded pictures now load from disk.');
+    console.log('\n  All of them. Reload the site — every picture now comes from disk.');
   }
 })();
