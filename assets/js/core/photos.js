@@ -110,20 +110,20 @@ async function placePhoto(place){
    icon on a tinted field. Better than an empty grey box, and it never
    fails to load. */
 /* ===========================================================
-   RESIZING
+   SIZING
 
-   photos.js stores full-size originals, because Wikimedia's own
-   thumbnail paths turned out to be unreachable while the originals
-   load reliably. Originals are far too heavy to drop straight into
-   a page — several megabytes each — so they are resized here, by a
-   free image CDN that fetches the original on its side and returns
-   a sized JPEG.
+   photos.js stores full-size originals — often eight or ten
+   megabytes each. Dropping those straight into a card the size of a
+   postcard is what made the site crawl, so nothing ever loads an
+   original if a smaller copy can be had.
 
-   Everything that paints a photo goes through loadImage(), which
-   tries the resized version and falls back to the original if the
-   CDN is unreachable. That way the worst case is a slow picture
-   rather than no picture, and the resizing can be changed or
-   removed in this one function.
+   Wikimedia generates those smaller copies itself and serves them
+   from its CDN, which is far faster than resizing an original
+   somewhere else. There are two ways to address one, plus a resizing
+   proxy as a safety net, so loadImage() walks the list until a
+   picture arrives and remembers which kind of address worked. After
+   the first picture of a session, every later one goes straight
+   there.
    =========================================================== */
 function cdnImg(url, w){
   if (!url) return '';
@@ -133,24 +133,62 @@ function cdnImg(url, w){
        + (w ? '&w=' + w : '') + '&output=jpg&q=82&n=-1';
 }
 
+/* Pull a Wikimedia original apart: which project, which two hash
+   folders, which file. Every other address for the picture can be
+   built from those three. */
+function wmParse(url){
+  const m = /^https?:\/\/upload\.wikimedia\.org\/wikipedia\/([a-z]+)\/([0-9a-f])\/([0-9a-f]{2})\/([^\/?#]+)$/.exec(url || '');
+  if (!m) return null;
+  return { proj: m[1], dir: m[2] + '/' + m[3], file: m[4],
+           wiki: m[1] === 'commons' ? 'commons.wikimedia.org' : m[1] + '.wikipedia.org' };
+}
+
+/* Every address the same picture can be reached at, cheapest first. */
+function photoVariants(url, w){
+  const out = [];
+  const f = wmParse(url);
+  if (f && w && !/\.svg$/i.test(f.file)){
+    /* Wikimedia's own resized copy, straight from its CDN */
+    out.push(['thumb', 'https://upload.wikimedia.org/wikipedia/' + f.proj + '/thumb/'
+      + f.dir + '/' + f.file + '/' + w + 'px-' + f.file]);
+    /* the same copy, addressed the way MediaWiki itself does it */
+    out.push(['filepath', 'https://' + f.wiki + '/wiki/Special:FilePath/' + f.file + '?width=' + w]);
+  }
+  if (w && /^https?:\/\//.test(url) && !/wsrv\.nl/.test(url)) out.push(['cdn', cdnImg(url, w)]);
+  out.push(['orig', url]);
+  return out;
+}
+
+/* Which shape of address worked last time, so the rest of the
+   session does not repeat a miss. */
+let PHOTO_ROUTE = '';
+try { PHOTO_ROUTE = sessionStorage.getItem('meridian.route') || ''; } catch(e){}
+function photoRoute(kind){
+  if (kind === PHOTO_ROUTE) return;
+  PHOTO_ROUTE = kind;
+  try { sessionStorage.setItem('meridian.route', kind); } catch(e){}
+}
+
 /* Load `url` at about `w` pixels wide into an Image, calling ok(img)
-   when it arrives and fail() if neither the CDN nor the original
-   will come. */
+   when it arrives and fail() when no address for it will come. */
 function loadImage(url, w, ok, fail){
   if (!url){ if (fail) fail(); return; }
+
+  let list = photoVariants(url, w);
+  if (PHOTO_ROUTE){
+    const good = list.filter(v => v[0] === PHOTO_ROUTE);
+    if (good.length) list = good.concat(list.filter(v => v[0] !== PHOTO_ROUTE));
+  }
+
   const img = new Image();
   img.decoding = 'async';
-  let triedOriginal = false;
-  img.onload = () => ok(img);
+  let i = 0;
+  img.onload = () => { photoRoute(list[i][0]); ok(img); };
   img.onerror = () => {
-    if (!triedOriginal && cdnImg(url, w) !== url){
-      triedOriginal = true;
-      img.src = url;                                     /* straight from source */
-      return;
-    }
+    if (++i < list.length){ img.src = list[i][1]; return; }
     if (fail) fail();
   };
-  img.src = cdnImg(url, w);
+  img.src = list[0][1];
   return img;
 }
 
@@ -169,18 +207,14 @@ function paintPhoto(el, place){
   el.innerHTML = photoFallback(place);
   placePhoto(place).then(p => {
     if (!p || !p.src) return;
+    /* No credit chip over the picture: it covered the thing the
+       picture is of. Attribution lives in the page footer, and the
+       photographer is on the image itself as a tooltip. */
     loadImage(p.thumb || p.src, 400, img => {
       img.alt = place.name;
+      img.title = [p.by, p.lic].filter(Boolean).join(' · ');
       el.innerHTML = '';
       el.appendChild(img);
-      const a = document.createElement('a');
-      a.className = 'ph-credit';
-      a.href = p.page || '#'; a.target = '_blank'; a.rel = 'noopener';
-      const by = p.by ? (p.by.length > 22 ? p.by.slice(0, 22) + '…' : p.by)
-                      : (p.src_kind === 'nps' ? 'NPS' : 'Wikimedia');
-      a.textContent = by;
-      a.title = [p.by, p.lic].filter(Boolean).join(' · ') || 'Source';
-      el.appendChild(a);
     });
   });
 }

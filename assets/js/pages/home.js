@@ -90,11 +90,12 @@
 
     placePhoto(place).then(ph => {
       if (!ph || !ph.src) return;                   // gradient stands in
-      loadImage(ph.src, 1800, img => {
+      loadImage(ph.src, 1600, img => {
         slot.style.backgroundImage = 'url("' + img.src + '")';
         slot.classList.add('is-on');
-        if (cred) cred.innerHTML = plEsc(place.name) + ', ' + plEsc(stateName(place.abbr))
-          + (ph.by ? ' · <a href="' + plEsc(ph.page || '#') + '" target="_blank" rel="noopener">' + plEsc(ph.by) + '</a>' : '');
+        /* where it is, and nothing else: the file name and licence
+           used to sit here, on top of the photograph */
+        if (cred) cred.textContent = place.name + ', ' + stateName(place.abbr);
       });
     });
   })();
@@ -242,7 +243,7 @@
     if (!el || !place) return;
     placePhoto(place).then(p => {
       if (!p || !p.src){ el.classList.add('is-empty'); el.innerHTML = '<span class="hm-fall">' + homeIcon(place.kind) + '</span>'; return; }
-      loadImage(p.src, 700,
+      loadImage(p.src, 560,
         img => { el.style.backgroundImage = 'url("' + img.src + '")'; el.classList.add('is-on'); },
         () => { el.classList.add('is-empty'); el.innerHTML = '<span class="hm-fall">' + homeIcon(place.kind) + '</span>'; });
     });

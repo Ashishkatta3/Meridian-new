@@ -188,54 +188,142 @@ function stopCard(t, pid, listId, leg, isSub, subCount){
     + '</article>';
 }
 
-/* Somewhere to sleep and somewhere to eat, for every stop on the
-   trip. These are live searches rather than stored listings: prices
-   and availability change by the hour and this project has no
-   business pretending to know them. */
-function stayPanel(t){
-  const stops = [];
-  t.days.forEach(d => d.stops.forEach(sid => { if (stops.indexOf(sid) === -1) stops.push(sid); }));
-  t.ideas.forEach(sid => { if (stops.indexOf(sid) === -1) stops.push(sid); });
+/* ===========================================================
+   STAY & EAT
 
-  /* one row per PLACE — hotels are booked by town, not by attraction */
+   This was a row of search links per stop, which is a bookmark bar,
+   not a plan. It is now two working lists under every stop — where
+   you are sleeping, where you are eating — that you add to, reorder
+   and clear, saved on the trip like any other part of it and
+   carried into the export.
+
+   What fills them:
+     - restaurants already in the atlas for that place,
+     - hotels and restaurants around it from OpenStreetMap (Photon:
+       free, keyless, CORS-enabled),
+     - anything you type in yourself.
+
+   Prices and availability are nobody's business to store, so the
+   booking sites stay as one "compare" link per stop.
+   =========================================================== */
+
+function stayKey(kind, key){ return kind + '|' + key; }
+function gmaps(q){ return 'https://www.google.com/maps/search/' + encodeURIComponent(q); }
+
+/* one saved row */
+function stayRow(t, key, r, i, n){
+  return '<li class="st-row" data-strow="' + plEsc(r.id) + '">'
+    + '<span class="st-n">' + (i + 1) + '</span>'
+    + '<div class="st-rt">'
+    +   (r.url ? '<a href="' + plEsc(r.url) + '" target="_blank" rel="noopener">' + plEsc(r.name) + ' ↗</a>'
+               : '<b>' + plEsc(r.name) + '</b>')
+    +   (r.sub ? '<i>' + plEsc(r.sub) + '</i>' : '')
+    + '</div>'
+    + '<div class="st-ord">'
+    +   '<button class="st-mv" data-stmv="up|' + plEsc(key) + '|' + plEsc(r.id) + '"'
+    +     (i === 0 ? ' disabled' : '') + ' aria-label="Move up">↑</button>'
+    +   '<button class="st-mv" data-stmv="dn|' + plEsc(key) + '|' + plEsc(r.id) + '"'
+    +     (i === n - 1 ? ' disabled' : '') + ' aria-label="Move down">↓</button>'
+    +   '<button class="pg-x" data-strm="' + plEsc(key) + '|' + plEsc(r.id) + '" aria-label="Remove">&times;</button>'
+    + '</div></li>';
+}
+
+function stayColumn(t, key, kind, place){
+  const rows = tripStayList(t, key, kind);
+  const title = kind === 'stay' ? 'Where you are sleeping' : 'Where you are eating';
+  const ph    = kind === 'stay' ? 'Add a hotel, cabin or friend’s couch…' : 'Add a restaurant, bar or bakery…';
+
+  let h = '<div class="st-col">'
+    + '<h4>' + title + (rows.length ? ' <span>' + rows.length + '</span>' : '') + '</h4>';
+
+  h += rows.length
+     ? '<ol class="st-list">' + rows.map((r, i) => stayRow(t, key, r, i, rows.length)).join('') + '</ol>'
+     : '<p class="st-empty">Nothing picked yet. Add one below, or take a suggestion.</p>';
+
+  h += '<div class="st-add">'
+     +   '<input type="text" data-stin="' + plEsc(stayKey(kind, key)) + '" placeholder="' + ph + '" autocomplete="off">'
+     +   '<button class="pg-btn pg-btn-s" data-stadd="' + plEsc(stayKey(kind, key)) + '">Add</button>'
+     + '</div>';
+
+  h += '<div class="st-sug" data-stsug="' + plEsc(stayKey(kind, key)) + '">'
+     +   '<p class="st-load">Looking nearby…</p>'
+     + '</div>';
+
+  return h + '</div>';
+}
+
+function stayPanel(t){
+  /* every place on the trip, in the order it is visited */
   const seen = {}, places = [];
-  stops.forEach(sid => {
+  const push = sid => {
     const info = stopInfo(sid); if (!info) return;
     const key = info.kind === 'spot' ? info.parent : sid;
-    if (seen[key]) return; seen[key] = 1; places.push({ key: key, info: info });
-  });
+    if (seen[key]) return; seen[key] = 1;
+    places.push({ key: key, info: stopInfo(key) || info });
+  };
+  t.days.forEach(d => d.stops.forEach(push));
+  t.ideas.forEach(push);
 
   if (!places.length){
     return '<div class="pg-empty"><p>Nothing on the trip yet.</p>'
-         + '<p class="pg-note">Add a few stops and places to stay and eat will show up here for each of them.</p></div>';
+         + '<p class="pg-note">Add a stop and this becomes two lists under it: '
+         + 'where you are sleeping and where you are eating.</p></div>';
   }
 
-  return '<p class="pg-note">Live searches for each stop. Dates and prices move too fast to store, '
-    + 'so these open the places that actually have them.</p>'
+  return '<p class="pg-note">Two lists under every stop. Add from the suggestions, '
+    + 'type in your own, drag the order with the arrows. Everything here is saved on the '
+    + 'trip and comes out in the export.</p>'
     + '<div class="pg-stay">' + places.map(p => {
         const place = placeGet(p.key);
         const label = place ? place.name + ', ' + stateName(place.abbr) : p.info.name;
         const q = encodeURIComponent(label);
-        const ll = place ? place.lat + ',' + place.lon : '';
-        return '<div class="pg-stayrow">'
-          + '<div class="pg-stayh">'
-          +   (place ? '<span class="pg-stayph" data-pgphoto="' + p.key + '"></span>' : '<span class="pg-stayph is-empty"></span>')
-          +   '<div><b>' + plEsc(place ? place.name : p.info.name) + '</b>'
-          +   '<i>' + plEsc(place ? stateName(place.abbr) : p.info.sub) + '</i></div>'
-          + '</div>'
-          + '<div class="pg-staylinks">'
-          +   stayLink('Hotels', 'https://www.booking.com/searchresults.html?ss=' + q, 'Booking.com')
-          +   stayLink('Also hotels', 'https://www.google.com/travel/hotels/' + q, 'Google Hotels')
-          +   stayLink('Restaurants', 'https://www.google.com/maps/search/restaurants+in+' + q, 'Google Maps')
-          +   stayLink('Coffee &amp; bars', 'https://www.google.com/maps/search/bars+and+cafes+in+' + q, 'Google Maps')
-          +   (ll ? stayLink('Open the area', 'https://www.google.com/maps/search/?api=1&query=' + ll, 'Google Maps') : '')
-          + '</div></div>';
+        return '<section class="st-place" data-stplace="' + plEsc(p.key) + '"'
+          + (place ? ' data-stlat="' + place.lat + '" data-stlon="' + place.lon + '"' : '')
+          + ' data-stlabel="' + plEsc(label) + '">'
+          + '<header class="st-h">'
+          +   (place ? '<span class="st-ph" data-pgphoto="' + plEsc(p.key) + '"></span>'
+                     : '<span class="st-ph is-empty"></span>')
+          +   '<div class="st-ht"><b>' + plEsc(place ? place.name : p.info.name) + '</b>'
+          +     '<i>' + plEsc(place ? stateName(place.abbr) : (p.info.sub || '')) + '</i></div>'
+          +   '<a class="st-cmp" href="https://www.booking.com/searchresults.html?ss=' + q
+          +     '" target="_blank" rel="noopener">Compare hotels ↗</a>'
+          + '</header>'
+          + '<div class="st-cols">'
+          +   stayColumn(t, p.key, 'stay', place)
+          +   stayColumn(t, p.key, 'eat', place)
+          + '</div></section>';
       }).join('') + '</div>';
 }
 
-function stayLink(label, href, host){
-  return '<a class="pg-staylink" href="' + href + '" target="_blank" rel="noopener">'
-       + '<b>' + label + '</b><span>' + host + ' ↗</span></a>';
+/* ---- suggestions ----
+
+   Restaurants come from the atlas first, because those are written
+   rather than scraped. Hotels have to come from outside: this
+   project stores no lodging of its own and never will. */
+const ST_SUG_CACHE = {};
+
+async function osmNear(lat, lon, tag, word){
+  const ck = tag + '@' + lat.toFixed(2) + ',' + lon.toFixed(2);
+  if (ST_SUG_CACHE[ck]) return ST_SUG_CACHE[ck];
+  try {
+    const url = 'https://photon.komoot.io/api/?limit=12&osm_tag=' + encodeURIComponent(tag)
+      + '&lat=' + lat + '&lon=' + lon + '&q=' + encodeURIComponent(word);
+    const r = await fetch(url);
+    if (!r.ok) return [];
+    const j = await r.json();
+    const out = [];
+    (j.features || []).forEach(f => {
+      const p = f.properties || {}, c = f.geometry && f.geometry.coordinates;
+      if (!p.name || !c) return;
+      /* Photon only leans towards the coordinates given, so anything
+         in the next state along has to be thrown out here. */
+      if (typeof haversine === 'function' && haversine(lat, lon, c[1], c[0]) > 35) return;
+      out.push({ name: p.name,
+                 sub: [p.street, p.city || p.district, p.state].filter(Boolean).join(', ') });
+    });
+    ST_SUG_CACHE[ck] = out;
+    return out;
+  } catch(e){ return []; }
 }
 
 function addFromRow(t){
@@ -277,13 +365,23 @@ function mountPlanner(host, tripIdOrNull){
   });
 
   const on = (sel, fn) => { const e = host.querySelector(sel); if (e) e.onclick = fn; };
-  host.querySelectorAll('[data-ptab]').forEach(b => b.onclick = () => {
-    const stay = b.dataset.ptab === 'stay';
+
+  /* Which tab is open survives a repaint: adding a hotel used to
+     throw you back to the itinerary after every click. */
+  const showTab = which => {
+    PG_TAB = which === 'stay' ? 'stay' : 'board';
+    const stay = PG_TAB === 'stay';
     host.querySelector('#pgStay').hidden = !stay;
     host.querySelector('#pgBoard').hidden = stay;
-    host.querySelectorAll('[data-ptab]').forEach(x => x.classList.toggle('is-on', x === b));
-    if (stay) host.querySelectorAll('#pgStay [data-pgphoto]').forEach(el => pgPhoto(el, placeGet(el.dataset.pgphoto)));
-  });
+    host.querySelectorAll('[data-ptab]').forEach(x => x.classList.toggle('is-on', x.dataset.ptab === PG_TAB));
+    if (stay){
+      host.querySelectorAll('#pgStay [data-pgphoto]').forEach(el => pgPhoto(el, placeGet(el.dataset.pgphoto)));
+      loadStaySuggestions(host, id, repaint);
+    }
+  };
+  host.querySelectorAll('[data-ptab]').forEach(b => b.onclick = () => showTab(b.dataset.ptab));
+  showTab(PG_TAB);
+  wireStay(host, id, repaint);
 
   on('#addDay', () => { tripAddDay(id); repaint(); });
   on('#shareTrip', () => openShare(id));
@@ -309,6 +407,88 @@ function mountPlanner(host, tripIdOrNull){
 
   wireSearch(host, id, repaint);
   wireDrag(host, id, repaint);
+}
+
+/* ---------- stay & eat: the lists ---------- */
+let PG_TAB = 'board';
+
+function wireStay(host, id, repaint){
+  const add = (kindKey, name, sub, label) => {
+    const bits = kindKey.split('|');
+    const kind = bits[0], key = bits.slice(1).join('|');
+    if (!name.trim()) return;
+    tripStayAdd(id, key, { kind: kind, name: name.trim(), sub: sub || '',
+                           url: gmaps(name.trim() + ' ' + (label || '')) });
+    repaint();
+  };
+
+  host.querySelectorAll('[data-stadd]').forEach(b => b.onclick = () => {
+    const box = host.querySelector('[data-stin="' + b.dataset.stadd + '"]');
+    const sec = b.closest('[data-stplace]');
+    if (box) add(b.dataset.stadd, box.value, '', sec && sec.dataset.stlabel);
+  });
+  host.querySelectorAll('[data-stin]').forEach(i => i.onkeydown = e => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const sec = i.closest('[data-stplace]');
+    add(i.dataset.stin, i.value, '', sec && sec.dataset.stlabel);
+  });
+
+  host.querySelectorAll('[data-stmv]').forEach(b => b.onclick = () => {
+    const p = b.dataset.stmv.split('|');
+    tripStayMove(id, p.slice(1, -1).join('|'), p[p.length - 1], p[0] === 'up' ? -1 : 1);
+    repaint();
+  });
+  host.querySelectorAll('[data-strm]').forEach(b => b.onclick = () => {
+    const p = b.dataset.strm.split('|');
+    tripStayRemove(id, p.slice(0, -1).join('|'), p[p.length - 1]);
+    repaint();
+  });
+}
+
+/* Fill each column's suggestion strip once the tab is open. The
+   atlas answers for restaurants; OpenStreetMap answers for beds. */
+function loadStaySuggestions(host, id, repaint){
+  host.querySelectorAll('[data-stsug]').forEach(box => {
+    if (box.dataset.stdone) return;
+    box.dataset.stdone = '1';
+
+    const bits = box.dataset.stsug.split('|');
+    const kind = bits[0], key = bits.slice(1).join('|');
+    const sec  = box.closest('[data-stplace]');
+    const lat  = sec && +sec.dataset.stlat, lon = sec && +sec.dataset.stlon;
+    const label = (sec && sec.dataset.stlabel) || '';
+
+    const paint = items => {
+      const t = tripGet(id);
+      const fresh = items.filter(x => !tripStayHas(t, key, x.name)).slice(0, 8);
+      if (!fresh.length){ box.innerHTML = ''; return; }
+      box.innerHTML = '<p class="st-sugh">' + (kind === 'stay' ? 'Nearby' : 'Worth eating at') + '</p>'
+        + '<div class="st-chips">' + fresh.map((x, i) =>
+            '<button class="st-chip" data-stpick="' + i + '" title="' + plEsc(x.sub || x.name) + '">'
+            + '<span>+</span>' + plEsc(x.name) + '</button>').join('') + '</div>';
+      box.querySelectorAll('[data-stpick]').forEach(b => b.onclick = () => {
+        const x = fresh[+b.dataset.stpick]; if (!x) return;
+        tripStayAdd(id, key, { kind: kind, name: x.name, sub: x.sub || '',
+                               url: gmaps(x.name + ' ' + label) });
+        repaint();
+      });
+    };
+
+    let seed = [];
+    if (kind === 'eat' && typeof FOOD !== 'undefined' && FOOD[key]){
+      seed = FOOD[key].slice(0, 8).map(r => ({ name: r[0], sub: r[1] || r[2] || '' }));
+    }
+    if (seed.length >= 4 || !lat){ paint(seed); return; }
+
+    osmNear(lat, lon, kind === 'stay' ? 'tourism:hotel' : 'amenity:restaurant',
+            kind === 'stay' ? 'hotel' : 'restaurant').then(more => {
+      const have = {};
+      seed.forEach(x => have[x.name.toLowerCase()] = 1);
+      more.forEach(m => { if (!have[m.name.toLowerCase()]){ have[m.name.toLowerCase()] = 1; seed.push(m); } });
+      paint(seed);
+    });
+  });
 }
 
 /* ---------- search to add ---------- */
@@ -496,7 +676,7 @@ function pgPhoto(el, place){
   if (!el || !place) return;
   placePhoto(place).then(p => {
     if (!p || !p.src) { el.classList.add('is-empty'); return; }
-    loadImage(p.thumb || p.src, 500,
+    loadImage(p.thumb || p.src, 220,
       img => { el.style.backgroundImage = 'url("' + img.src + '")'; el.classList.add('is-on'); },
       () => el.classList.add('is-empty'));
   });

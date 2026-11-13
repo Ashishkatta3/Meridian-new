@@ -52,7 +52,11 @@
 .pg-empty{ padding: 40px 0; color: var(--muted); }
 .pg-empty p{ margin: 0 0 6px; font: 400 16px/1.5 var(--sans); }
 .pg-x{ appearance: none; cursor: pointer; background: none; border: 0; color: var(--faint);
-  font-size: 18px; line-height: 1; padding: 4px 6px; border-radius: 6px; }
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; flex: 0 0 auto;
+  font-size: 18px; line-height: 1; padding: 0; border-radius: 8px;
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+@media (pointer: coarse){ .pg-x{ width: 40px; height: 40px; } }
 .pg-x:hover{ color: var(--ink); background: var(--panel-2); }
 .pg-sec{ margin-top: 34px; }
 .pg-sec h2, .tr-head h2{ font: 500 13px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); margin: 0 0 12px; }
@@ -198,9 +202,15 @@
   box-shadow: var(--shadow-lg); padding: 24px 24px 22px; }
 .pk h3{ font: 400 26px/1.1 var(--serif); color: var(--ink); margin: 8px 0 2px; }
 .pk-sub{ font: 500 11px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 18px; }
-.pk-x{ position: absolute; top: 10px; right: 12px; appearance: none; cursor: pointer; background: none;
-  border: 0; font-size: 22px; line-height: 1; color: var(--faint); padding: 4px; }
-.pk-x:hover{ color: var(--ink); }
+/* Big enough to hit first time, on a trackpad or a thumb. */
+.pk-x{ position: absolute; top: 6px; right: 6px; z-index: 3;
+  display: flex; align-items: center; justify-content: center;
+  width: 40px; height: 40px; padding: 0; border-radius: 50%;
+  appearance: none; cursor: pointer; background: none; border: 0;
+  font-size: 23px; line-height: 1; color: var(--faint);
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.pk-x:hover{ color: var(--ink); background: var(--panel-2); }
+@media (pointer: coarse){ .pk-x{ width: 46px; height: 46px; } }
 .pk-list{ display: grid; gap: 7px; margin-bottom: 16px; }
 .pk-trip{ appearance: none; cursor: pointer; text-align: left; width: 100%;
   background: var(--panel-2); border: 1px solid var(--rule); border-radius: var(--r-m); padding: 12px 14px; transition: border-color .14s; }
@@ -369,20 +379,219 @@
   background: var(--panel-2); border: 1px solid var(--rule); border-radius: 100px;
   padding: 10px 15px; outline: none; transition: border-color .14s, background .14s; }
 .navsearch input:focus{ border-color: var(--faint); background: var(--panel); }
-.navsearch-out{ position: absolute; left: 0; right: 0; top: calc(100% + 7px); z-index: 60;
+/* The results hang off the right edge of the field and are allowed
+   to be wider than it: pinned to the field's width they were a
+   narrow column of wrapped lines, which reads as a zoomed-in page
+   rather than a list. Each row is one line, clipped. */
+.navsearch-out{ position: absolute; right: 0; top: calc(100% + 7px); z-index: 60;
+  width: max(100%, 420px); max-width: min(92vw, 520px);
   background: var(--panel); border: 1px solid var(--rule); border-radius: var(--r-m);
-  box-shadow: var(--shadow-lg); overflow: hidden; max-height: 70vh; overflow-y: auto; }
+  box-shadow: var(--shadow-lg); overflow: hidden; max-height: min(62vh, 440px); overflow-y: auto;
+  overscroll-behavior: contain; }
 .navsearch-r{ display: block; width: 100%; text-align: left; appearance: none; cursor: pointer;
-  background: none; border: 0; border-bottom: 1px solid var(--rule); padding: 11px 15px; }
+  background: none; border: 0; border-bottom: 1px solid var(--rule-soft); padding: 9px 14px; }
 .navsearch-r:last-child{ border-bottom: 0; }
 .navsearch-r:hover, .navsearch-r.is-on{ background: var(--panel-2); }
-.navsearch-r b{ display: block; font: 600 14px/1.2 var(--sans); color: var(--ink); }
-.navsearch-r i{ display: block; margin-top: 3px; font: 500 10px/1 var(--mono); letter-spacing: .06em;
-  text-transform: uppercase; color: var(--muted); font-style: normal; }
+.navsearch-r b{ display: block; font: 600 13.5px/1.25 var(--sans); color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.navsearch-r i{ display: block; margin-top: 2px; font: 500 9.5px/1.2 var(--mono); letter-spacing: .06em;
+  text-transform: uppercase; color: var(--muted); font-style: normal;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .navsearch-none{ padding: 13px 15px; margin: 0; font: 500 12.5px/1 var(--mono); color: var(--muted); }
 @media (max-width: 900px){
   /* the header must be allowed to wrap, or the search is squeezed
      into whatever few pixels are left between the brand and buttons */
   .top-in{ flex-wrap: wrap; }
   .navsearch{ order: 10; flex: 1 0 100%; max-width: none; margin: 10px 0 2px; }
+}
+
+/* ===========================================================
+   STAY & EAT
+
+   Two working lists under every stop. The whole panel used to be
+   unstyled links, which is why it read as broken: these are rows
+   you add to, reorder and clear, so they are built to look like a
+   list you own rather than a page of search results.
+   =========================================================== */
+.pg-tabs{ margin-top: 26px; }
+
+.pg-stay{ display: grid; gap: 18px; }
+
+.st-place{
+  background: var(--panel); border: 1px solid var(--rule);
+  border-radius: var(--r-l); overflow: hidden;
+}
+.st-h{
+  display: flex; align-items: center; gap: 13px;
+  padding: 13px 16px; border-bottom: 1px solid var(--rule);
+  background: var(--panel-2);
+}
+.st-ph{
+  flex: 0 0 auto; width: 46px; height: 46px; border-radius: 10px;
+  background: var(--rule-soft) center/cover; opacity: 0; transition: opacity .35s;
+}
+.st-ph.is-on{ opacity: 1; }
+.st-ph.is-empty{ opacity: 1; background: linear-gradient(140deg, var(--panel-2), var(--rule-soft)); }
+.st-ht{ min-width: 0; }
+.st-ht b{ display: block; font: 600 16px/1.25 var(--sans); color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.st-ht i{ display: block; margin-top: 2px; font: 500 10px/1 var(--mono); letter-spacing: .12em;
+  text-transform: uppercase; color: var(--muted); font-style: normal; }
+.st-cmp{ margin-left: auto; flex: 0 0 auto; font: 500 12px/1 var(--sans); color: var(--want);
+  border: 1px solid var(--rule); border-radius: 100px; padding: 9px 13px; transition: all .14s; }
+.st-cmp:hover{ border-color: var(--want); }
+
+.st-cols{ display: grid; grid-template-columns: 1fr 1fr; }
+.st-col{ padding: 16px 18px 18px; min-width: 0; }
+.st-col + .st-col{ border-left: 1px solid var(--rule); }
+.st-col h4{
+  margin: 0 0 11px; font: 500 10.5px/1 var(--mono); letter-spacing: .14em;
+  text-transform: uppercase; color: var(--muted); font-weight: 500;
+}
+.st-col h4 span{
+  margin-left: 7px; padding: 2px 7px; border-radius: 100px;
+  background: var(--panel-2); border: 1px solid var(--rule); color: var(--ink-2);
+}
+
+.st-list{ list-style: none; margin: 0 0 12px; padding: 0; display: grid; gap: 6px; }
+.st-row{
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 10px; border: 1px solid var(--rule); border-radius: var(--r-s);
+  background: var(--panel-2);
+}
+.st-n{ flex: 0 0 auto; width: 20px; height: 20px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font: 500 10.5px/1 var(--mono); color: var(--muted);
+  background: var(--panel); border: 1px solid var(--rule); }
+.st-rt{ min-width: 0; flex: 1 1 auto; }
+.st-rt a, .st-rt b{ display: block; font: 600 13.5px/1.3 var(--sans); color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.st-rt a:hover{ color: var(--want); }
+.st-rt i{ display: block; margin-top: 1px; font: 400 11.5px/1.35 var(--sans); color: var(--muted);
+  font-style: normal; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.st-ord{ display: flex; align-items: center; gap: 2px; flex: 0 0 auto; }
+.st-mv{
+  appearance: none; cursor: pointer; background: none; border: 0; border-radius: 7px;
+  width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center;
+  font-size: 13px; line-height: 1; color: var(--muted); touch-action: manipulation;
+}
+.st-mv:hover:not(:disabled){ color: var(--ink); background: var(--panel); }
+.st-mv:disabled{ opacity: .3; cursor: default; }
+@media (pointer: coarse){ .st-mv{ width: 34px; height: 34px; } }
+
+.st-empty{ margin: 0 0 12px; font: 400 13px/1.5 var(--sans); color: var(--faint); }
+
+.st-add{ display: flex; gap: 6px; }
+.st-add input{
+  flex: 1 1 auto; min-width: 0;
+  font: 400 13px/1 var(--sans); color: var(--ink);
+  background: var(--panel-2); border: 1px solid var(--rule); border-radius: var(--r-s);
+  padding: 10px 11px; outline: none;
+}
+.st-add input:focus{ border-color: var(--faint); background: var(--panel); }
+
+.st-sug{ margin-top: 12px; }
+.st-sugh{ margin: 0 0 7px; font: 500 10px/1 var(--mono); letter-spacing: .14em;
+  text-transform: uppercase; color: var(--faint); }
+.st-load{ margin: 0; font: 400 12px/1 var(--sans); color: var(--faint); }
+.st-chips{ display: flex; flex-wrap: wrap; gap: 6px; }
+.st-chip{
+  appearance: none; cursor: pointer; max-width: 100%;
+  display: inline-flex; align-items: center; gap: 6px;
+  font: 500 12.5px/1 var(--sans); color: var(--ink-2);
+  background: transparent; border: 1px dashed var(--rule); border-radius: 100px;
+  padding: 8px 12px; transition: all .14s;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.st-chip:hover{ color: var(--ink); border-style: solid; border-color: var(--want); }
+.st-chip span{ color: var(--want); font-weight: 700; }
+
+@media (max-width: 760px){
+  .st-cols{ grid-template-columns: 1fr; }
+  .st-col + .st-col{ border-left: 0; border-top: 1px solid var(--rule); }
+  .st-h{ flex-wrap: wrap; }
+  .st-cmp{ margin-left: 0; width: 100%; text-align: center; }
+}
+
+/* ===========================================================
+   PHONES — the alignment pass
+
+   Loaded last so it wins over the per-page sheets. The desktop
+   layout was being shrunk rather than redrawn: images kept
+   desktop heights, monospaced notes kept desktop sizes, and
+   padding meant for a 1,200-pixel column ate a 390-pixel one.
+   Everything below is about proportion on a small screen.
+   =========================================================== */
+@media (max-width: 620px){
+
+  /* --- the opening --- */
+  .hero2{ min-height: min(64vh, 540px); margin-bottom: 20px; }
+  .hero2-in{ padding: 30px 0 74px; }
+  .hero2-in h1{ font-size: clamp(34px, 9.4vw, 52px); max-width: 14ch; margin-top: 10px; }
+  .hero2-in p{ margin-top: 14px; font-size: 14.5px; line-height: 1.6; }
+  .hero2-cta{ margin-top: 20px; gap: 8px; }
+  .hero2-btn{ padding: 14px 16px; font-size: 14px; }
+  .hero2-scroll{ bottom: 10px; gap: 5px; padding: 6px 10px;
+    font-size: 9px; letter-spacing: .1em; white-space: nowrap; }
+  .hero2-scroll svg{ width: 15px; height: 15px; }
+
+  /* --- sections --- */
+  .hm-sec{ margin-top: 24px; padding-top: 4px; }
+  .hm-h{ margin-bottom: 13px; padding-bottom: 10px; gap: 4px 12px; }
+  .hm-sub{ font-size: 13px; }
+  .hm-plan{ margin-top: 24px; }
+  .hm-plan-in{ padding: 20px 17px; gap: 14px; }
+  .hm-plan-in p{ font-size: 14px; }
+  .hm-plan-cta{ width: 100%; text-align: center; padding: 14px 20px; }
+  .hm-plan-note{ font-size: 11.5px; line-height: 1.55; }
+
+  /* a photograph on a phone is a band, not a wall */
+  .hm-potw-ph{ min-height: 0; aspect-ratio: 16 / 10; }
+  .hm-potw-tx{ padding: 18px 17px 20px; }
+  .hm-potw-tx h3{ font-size: 28px; margin: 9px 0 10px; }
+  .hm-potw-tx p{ font-size: 14.5px; line-height: 1.6; margin-bottom: 14px; }
+  .hm-card-ph{ height: 108px; }
+  .hm-card-tx{ padding: 10px 12px 12px; }
+  .hm-card-tx b{ font-size: 14px; margin-top: 4px; }
+  .hm-card-tx span{ font-size: 9px; }
+  .hm-evc-ph{ height: 84px; }
+  .hm-ev-fall a{ font-size: 12px; padding: 8px 12px; }
+
+  /* --- counters --- */
+  .tally{ gap: 7px; padding: 14px 0 6px; }
+  .tally span{ padding: 8px 12px; gap: 6px; }
+  .tally b{ font-size: 15px; }
+  .tally i{ font-size: 9px; letter-spacing: .1em; }
+
+  /* --- a place --- */
+  .pl-hero{ min-height: 300px; }
+  .pl-layout{ gap: 22px; margin-top: 22px; }
+  .pl-lead{ font-size: 18px; line-height: 1.55; }
+  .pl-para{ font-size: 15px; line-height: 1.7; margin-bottom: 15px; }
+  .pl-things{ gap: 12px; }
+  .pl-thing-ph{ height: auto; aspect-ratio: 16 / 10; }   /* keeps the frame, drops the wall */
+  .pl-thing-b{ padding: 14px 15px 15px; }
+  a.pl-thing-n{ font-size: 17px; }
+  .pl-things p{ font-size: 14px; line-height: 1.6; margin-bottom: 12px; }
+  .pl-rbox{ padding: 14px 15px; }
+  .pl-call{ padding: 13px 14px; }
+  .pl-foot{ margin-top: 30px; padding-top: 18px; }
+
+  /* --- planner --- */
+  .pg-head{ gap: 14px; }
+  .pg-acts{ width: 100%; }
+  .pg-acts .pg-btn{ flex: 1; text-align: center; }
+  .st-col{ padding: 14px 15px 16px; }
+  .st-h{ padding: 11px 13px; gap: 11px; }
+  .st-ph{ width: 40px; height: 40px; }
+
+  /* --- notes and labels everywhere ---
+     the monospaced asides were set at desktop size and dominated
+     every page they appeared on */
+  .pg-note, .pg-blank, .hm-plan-note, .navsearch-none{ font-size: 11.5px; line-height: 1.6; }
+  .lab{ font-size: 9.5px; letter-spacing: .16em; }
+
+  /* nothing may push the page sideways */
+  .wrap{ width: calc(100% - 32px); }
+  img, .st-chip, .pg-chip{ max-width: 100%; }
 }

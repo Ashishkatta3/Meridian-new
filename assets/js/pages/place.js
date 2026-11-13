@@ -291,15 +291,13 @@ function heroPhoto(slot, place){
   placePhoto(place).then(p => {
     if (!p || !p.src){ slot.classList.remove('is-loading'); slot.classList.add('is-empty');
       slot.innerHTML = '<span class="pl-hero-fall">' + iconFor(place.kind) + '</span>'; return; }
-    loadImage(p.src, 1400, img => {
+    /* The photographer's name used to sit on the photograph. It is in
+       the footer now — a picture of a city should look like a picture
+       of a city, not like a file listing. */
+    loadImage(p.src, 1200, img => {
       slot.classList.remove('is-loading');
       slot.style.backgroundImage = 'url("' + img.src + '")';
-      if (p.by || p.page){
-        const a = document.createElement('a');
-        a.className = 'pl-credit'; a.href = p.page || '#'; a.target = '_blank'; a.rel = 'noopener';
-        a.textContent = (p.by ? p.by : (p.src_kind === 'nps' ? 'NPS' : 'Wikimedia')) + (p.lic ? ' · ' + p.lic : '');
-        slot.appendChild(a);
-      }
+      slot.title = [p.by, p.lic].filter(Boolean).join(' · ');
     }, () => {
       slot.classList.remove('is-loading'); slot.classList.add('is-empty');
       slot.innerHTML = '<span class="pl-hero-fall">' + iconFor(place.kind) + '</span>';
@@ -517,7 +515,7 @@ function spotFallback(el){
 function showSpotPhoto(el, url){
   if (!url) return spotFallback(el);
   SPOT_USED[photoKey(url)] = 1;
-  loadImage(url, 500, img => {
+  loadImage(url, 420, img => {
     el.innerHTML = ''; el.style.backgroundImage = 'url("' + img.src + '")';
     el.classList.remove('is-empty'); el.classList.add('is-on');
   }, () => spotFallback(el));

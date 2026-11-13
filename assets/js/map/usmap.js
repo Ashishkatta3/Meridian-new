@@ -414,6 +414,7 @@ function wireUsMap(root, opts){
       return;
     }
     if (e.target.closest('[data-umclose]')) { closeCard(); return; }
+    if (card.contains(e.target)) return;              /* inside the card: leave it open */
 
     const mk = e.target.closest('[data-ummk]');
     if (mk){
@@ -423,6 +424,19 @@ function wireUsMap(root, opts){
     }
     const op = e.target.closest('[data-umopen]');
     if (op && opts.onPick){ opts.onPick(op.dataset.umopen, UM_BY_ID[op.dataset.umopen]); return; }
+  });
+
+  /* Closing has to be easy. The × answers to the press rather than
+     waiting for a full click — a trackpad that slides a pixel between
+     press and release was swallowing the click — and a press anywhere
+     outside the card closes it too, so there is always a way out. */
+  el.addEventListener('pointerdown', e => {
+    if (e.target.closest && e.target.closest('[data-umclose]')) closeCard();
+  });
+  document.addEventListener('pointerdown', e => {
+    if (card.hidden) return;
+    if (el.contains(e.target)) return;
+    closeCard();
   });
 
   /* keyboard, so the map is not mouse-only */

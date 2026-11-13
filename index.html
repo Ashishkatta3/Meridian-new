@@ -7,17 +7,23 @@
 <meta name="description" content="A personal travel atlas of the United States: every park, city and shore worth the drive, and a map of the ones you have been to.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+<!-- Loaded without blocking the first paint: a stylesheet in the head
+     holds the whole page back until it answers, and on a slow link that
+     was several seconds of blank screen before anything appeared. The
+     page renders in the fallback faces and swaps when these arrive. -->
+<link rel="stylesheet" media="print" onload="this.media='all'"
+      href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;600;700&display=swap"></noscript>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http%3A//www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='5' fill='%231F2B28'/%3E%3Cg fill='none' stroke='%23E3AC56' stroke-width='1.6'%3E%3Ccircle cx='12' cy='12' r='6.5'/%3E%3Cpath d='M12 5.5v13M5.8 9.6h12.4M5.8 14.4h12.4'/%3E%3C/g%3E%3C/svg%3E">
 
 <!-- Stylesheets are split by concern. Bump ?v= on every deploy or a
      phone will hold an old copy of one file next to a new copy of another. -->
-<link rel="stylesheet" href="assets/css/tokens.css?v=16">
-<link rel="stylesheet" href="assets/css/base.css?v=16">
-<link rel="stylesheet" href="assets/css/map.css?v=16">
-<link rel="stylesheet" href="assets/css/place.css?v=16">
-<link rel="stylesheet" href="assets/css/home.css?v=16">
-<link rel="stylesheet" href="assets/css/pages.css?v=16">
+<link rel="stylesheet" href="assets/css/tokens.css?v=17">
+<link rel="stylesheet" href="assets/css/base.css?v=17">
+<link rel="stylesheet" href="assets/css/map.css?v=17">
+<link rel="stylesheet" href="assets/css/place.css?v=17">
+<link rel="stylesheet" href="assets/css/home.css?v=17">
+<link rel="stylesheet" href="assets/css/pages.css?v=17">
 </head>
 <body>
 
@@ -84,49 +90,91 @@
   <div id="view-place" hidden></div>
 </main>
 
+<!-- One footer for every route: the page used to stop dead at the
+     last card. It also carries the photo and data attribution that
+     used to sit on top of the photographs. -->
+<footer class="foot"><div class="wrap foot-in">
+  <div class="foot-brand">
+    <a class="brand" href="#/">
+      <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3v18"/><path d="M4.2 7.5h15.6M4.2 16.5h15.6"/></svg>
+      MERIDIAN
+    </a>
+    <p>A travel atlas of the United States — four hundred parks, cities and shores,
+       what to do in each, and a map of the ones you have been to.</p>
+  </div>
+
+  <nav class="foot-cols" aria-label="Footer">
+    <div>
+      <h2>Explore</h2>
+      <a href="#/map">The map</a>
+      <a href="#/">Place of the week</a>
+      <a href="#/trips">Bucket list</a>
+    </div>
+    <div>
+      <h2>Plan</h2>
+      <a href="#/planner">Plan a trip</a>
+      <a href="#/trips">Your trips</a>
+      <a href="#/account">Account</a>
+    </div>
+    <div>
+      <h2>Sources</h2>
+      <a href="https://commons.wikimedia.org" target="_blank" rel="noopener">Wikimedia Commons</a>
+      <a href="https://www.nps.gov" target="_blank" rel="noopener">National Park Service</a>
+      <a href="https://open-meteo.com" target="_blank" rel="noopener">Open-Meteo</a>
+    </div>
+  </nav>
+
+  <p class="foot-fine">
+    Photographs from Wikimedia Commons and the National Park Service, reused under their
+    own licences; each photographer is named on the picture itself. Park details from the
+    NPS, weather from Open-Meteo, search and places from OpenStreetMap.
+    Built for the road, not for advertising.
+  </p>
+</div></footer>
+
 <!-- Load order matters: vocabulary, then data, then the pieces that
      read it, then boot. geo.us.js is generated; the rest is hand-edited. -->
-<script src="assets/js/data/taxonomy.js?v=16"></script>
-<script src="assets/js/data/places.js?v=16"></script>
-<script src="assets/js/data/spots.js?v=16"></script>
-<script src="assets/js/data/food.js?v=16"></script>
-<script src="assets/js/data/info.js?v=16"></script>
-<script src="assets/js/data/photos.js?v=16"></script>
-<script src="assets/js/data/roadtrips.js?v=16"></script>
-<script src="assets/js/data/bucket.js?v=16"></script>
-<script src="assets/js/data/longform.cities.js?v=16"></script>
-<script src="assets/js/data/longform.parks.js?v=16"></script>
-<script src="assets/js/data/longform.js?v=16"></script>
-<script src="assets/js/data/geo.us.js?v=16"></script>
+<script src="assets/js/data/taxonomy.js?v=17"></script>
+<script src="assets/js/data/places.js?v=17"></script>
+<script src="assets/js/data/spots.js?v=17"></script>
+<script src="assets/js/data/food.js?v=17"></script>
+<script src="assets/js/data/info.js?v=17"></script>
+<script src="assets/js/data/photos.js?v=17"></script>
+<script src="assets/js/data/roadtrips.js?v=17"></script>
+<script src="assets/js/data/bucket.js?v=17"></script>
+<script src="assets/js/data/longform.cities.js?v=17"></script>
+<script src="assets/js/data/longform.parks.js?v=17"></script>
+<script src="assets/js/data/longform.js?v=17"></script>
+<script src="assets/js/data/geo.us.js?v=17"></script>
 
-<script src="assets/js/core/config.js?v=16"></script>
-<script src="assets/js/core/auth.js?v=16"></script>
-<script src="assets/js/core/sun.js?v=16"></script>
-<script src="assets/js/core/events.js?v=16"></script>
-<script src="assets/js/core/search.js?v=16"></script>
-<script src="assets/js/core/state.js?v=16"></script>
-<script src="assets/js/core/geo.js?v=16"></script>
-<script src="assets/js/core/tags.js?v=16"></script>
-<script src="assets/js/core/itin.js?v=16"></script>
-<script src="assets/js/core/stops.js?v=16"></script>
-<script src="assets/js/core/pick.js?v=16"></script>
-<script src="assets/js/core/trips.js?v=16"></script>
-<script src="assets/js/core/cloud.js?v=16"></script>
-<script src="assets/js/core/photos.js?v=16"></script>
+<script src="assets/js/core/config.js?v=17"></script>
+<script src="assets/js/core/auth.js?v=17"></script>
+<script src="assets/js/core/sun.js?v=17"></script>
+<script src="assets/js/core/events.js?v=17"></script>
+<script src="assets/js/core/search.js?v=17"></script>
+<script src="assets/js/core/state.js?v=17"></script>
+<script src="assets/js/core/geo.js?v=17"></script>
+<script src="assets/js/core/tags.js?v=17"></script>
+<script src="assets/js/core/itin.js?v=17"></script>
+<script src="assets/js/core/stops.js?v=17"></script>
+<script src="assets/js/core/pick.js?v=17"></script>
+<script src="assets/js/core/trips.js?v=17"></script>
+<script src="assets/js/core/cloud.js?v=17"></script>
+<script src="assets/js/core/photos.js?v=17"></script>
 
-<script src="assets/js/map/icons.js?v=16"></script>
-<script src="assets/js/map/usmap.js?v=16"></script>
-<script src="assets/js/map/mini.js?v=16"></script>
+<script src="assets/js/map/icons.js?v=17"></script>
+<script src="assets/js/map/usmap.js?v=17"></script>
+<script src="assets/js/map/mini.js?v=17"></script>
 
-<script src="assets/js/pages/place.js?v=16"></script>
-<script src="assets/js/pages/home.js?v=16"></script>
-<script src="assets/js/pages/planner.js?v=16"></script>
-<script src="assets/js/pages/trips.js?v=16"></script>
-<script src="assets/js/pages/states.js?v=16"></script>
-<script src="assets/js/pages/account.js?v=16"></script>
-<script src="assets/js/pages/welcome.js?v=16"></script>
+<script src="assets/js/pages/place.js?v=17"></script>
+<script src="assets/js/pages/home.js?v=17"></script>
+<script src="assets/js/pages/planner.js?v=17"></script>
+<script src="assets/js/pages/trips.js?v=17"></script>
+<script src="assets/js/pages/states.js?v=17"></script>
+<script src="assets/js/pages/account.js?v=17"></script>
+<script src="assets/js/pages/welcome.js?v=17"></script>
 
-<script src="assets/js/app.js?v=16"></script>
-<script src="assets/js/core/router.js?v=16"></script>
+<script src="assets/js/app.js?v=17"></script>
+<script src="assets/js/core/router.js?v=17"></script>
 </body>
 </html>

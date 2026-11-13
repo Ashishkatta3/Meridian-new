@@ -52,7 +52,7 @@ svg{ display: block; }
   font: 500 11px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase;
   color: var(--muted); background: transparent;
   border: 1px solid var(--rule); border-radius: var(--r-s);
-  padding: 9px 12px; transition: color .16s, border-color .16s;
+  padding: 9px 12px; white-space: nowrap; transition: color .16s, border-color .16s;
 }
 .tbtn:hover{ color: var(--ink); border-color: var(--ink); }
 
@@ -71,6 +71,45 @@ svg{ display: block; }
 .lab{
   font: 500 10.5px/1 var(--mono); letter-spacing: .2em;
   text-transform: uppercase; color: var(--muted);
+}
+
+/* ---------- the footer ---------- */
+/* Every route ends here, so no page stops mid-air after its last
+   card. The columns collapse to one on a phone. */
+.foot{
+  margin-top: 72px;
+  border-top: 1px solid var(--rule);
+  background: var(--panel);
+}
+.foot-in{
+  display: grid; gap: 34px 48px;
+  grid-template-columns: minmax(240px, 1.3fr) 2fr;
+  padding: 48px 0 40px;
+}
+.foot-brand p{
+  max-width: 44ch; margin-top: 14px;
+  font-size: 14px; line-height: 1.65; color: var(--muted);
+}
+.foot-cols{ display: grid; gap: 28px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.foot-cols h2{
+  font: 500 10.5px/1 var(--mono); letter-spacing: .2em; text-transform: uppercase;
+  color: var(--faint); margin-bottom: 14px;
+}
+.foot-cols a{
+  display: block; padding: 5px 0;
+  font-size: 14px; color: var(--ink-2); transition: color .14s;
+}
+.foot-cols a:hover{ color: var(--ink); }
+.foot-fine{
+  grid-column: 1 / -1;
+  border-top: 1px solid var(--rule-soft); padding-top: 20px;
+  max-width: 92ch;
+  font: 400 12px/1.7 var(--sans); color: var(--faint);
+}
+@media (max-width: 860px){
+  .foot{ margin-top: 48px; }
+  .foot-in{ grid-template-columns: 1fr; gap: 28px; padding: 36px 0 32px; }
+  .foot-cols{ grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; }
 }
 
 /* ---------- counters under the map ---------- */

@@ -128,6 +128,62 @@ function tripUncomment(id, pid, at){
   t.updated = Date.now(); tripsSave();
 }
 
+/* ---- where you are sleeping and eating ----
+
+   Kept per place rather than per day, because a hotel belongs to a
+   town: one list of beds and one list of tables under each stop, in
+   the order you want to work through them.
+
+     t.stay = { placeId: [ { id, kind:'stay'|'eat', name, sub, url }, … ] }
+
+   The field is created on demand so trips made before this existed
+   keep working untouched. */
+function tripStayList(t, key, kind){
+  if (!t || !t.stay || !t.stay[key]) return [];
+  return t.stay[key].filter(x => x.kind === kind);
+}
+function tripStayHas(t, key, name){
+  if (!t || !t.stay || !t.stay[key]) return false;
+  const n = String(name || '').toLowerCase();
+  return t.stay[key].some(x => String(x.name).toLowerCase() === n);
+}
+function tripStayAdd(id, key, item){
+  const t = tripGet(id); if (!t || !item || !item.name) return null;
+  t.stay = t.stay || {};
+  t.stay[key] = t.stay[key] || [];
+  if (tripStayHas(t, key, item.name)) return null;
+  const row = {
+    id  : 's' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    kind: item.kind === 'stay' ? 'stay' : 'eat',
+    name: String(item.name).slice(0, 120),
+    sub : String(item.sub || '').slice(0, 160),
+    url : String(item.url || '')
+  };
+  t.stay[key].push(row);
+  t.updated = Date.now(); tripsSave();
+  return row;
+}
+function tripStayRemove(id, key, rowId){
+  const t = tripGet(id); if (!t || !t.stay || !t.stay[key]) return;
+  t.stay[key] = t.stay[key].filter(x => x.id !== rowId);
+  if (!t.stay[key].length) delete t.stay[key];
+  t.updated = Date.now(); tripsSave();
+}
+/* Reorder within its own kind, so moving a restaurant up never
+   steps over a hotel sitting between them in the raw array. */
+function tripStayMove(id, key, rowId, dir){
+  const t = tripGet(id); if (!t || !t.stay || !t.stay[key]) return;
+  const all = t.stay[key];
+  const row = all.find(x => x.id === rowId); if (!row) return;
+  const same = all.filter(x => x.kind === row.kind);
+  const at = same.indexOf(row), to = at + (dir < 0 ? -1 : 1);
+  if (to < 0 || to >= same.length) return;
+  const other = same[to];
+  const i = all.indexOf(row), j = all.indexOf(other);
+  all[i] = other; all[j] = row;
+  t.updated = Date.now(); tripsSave();
+}
+
 /* ---- export ---- */
 function tripStops(t){
   const out = [];
@@ -150,6 +206,17 @@ function tripToText(t){
   if (t.ideas.length){
     L.push('Ideas (no day yet)');
     t.ideas.forEach(pid => { const p = stopInfo(pid); if (p) L.push('  - ' + p.name + (p.kind === 'spot' ? '  (' + p.sub + ')' : ', ' + p.sub)); });
+    L.push('');
+  }
+  if (t.stay && Object.keys(t.stay).length){
+    L.push('Stay & eat');
+    Object.keys(t.stay).forEach(key => {
+      const rows = t.stay[key]; if (!rows || !rows.length) return;
+      const p = stopInfo(key);
+      L.push('  ' + (p ? p.name : key));
+      rows.forEach(r => L.push('    ' + (r.kind === 'stay' ? '[bed] ' : '[eat] ') + r.name
+                               + (r.sub ? ' — ' + r.sub : '') + (r.url ? '  ' + r.url : '')));
+    });
     L.push('');
   }
   L.push('Made with Meridian');

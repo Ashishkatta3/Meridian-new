@@ -71,6 +71,13 @@ function openPicker(info, trips, done){
   const esc = e => { if (e.key === 'Escape') close(); };
   document.addEventListener('keydown', esc);
 
+  /* The × answers to the press rather than a completed click: a
+     trackpad that slides a pixel between press and release never
+     produces one, which is why closing used to take several tries. */
+  wrap.addEventListener('pointerdown', e => {
+    if (e.target === wrap || (e.target.closest && e.target.closest('[data-close]'))) close();
+  });
+
   wrap.addEventListener('click', e => {
     if (e.target === wrap || e.target.closest('[data-close]')) return close();
 
