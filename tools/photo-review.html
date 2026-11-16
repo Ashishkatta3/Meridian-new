@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meridian — pick the photographs</title>
+<style>
+  :root{
+    --bg:#F7F5EF; --panel:#fff; --line:#E2DDD0; --ink:#20251F; --mut:#6E7468;
+    --gold:#B07D22; --teal:#2F7F6C; --bad:#B4453F;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#11140F; --panel:#181C16; --line:#2A3028; --ink:#E9ECE5; --mut:#8A9286;
+           --gold:#E3AC56; --teal:#5FB3A1; --bad:#D4746D; color-scheme: dark; }
+  }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--bg); color:var(--ink); font:400 15px/1.55 system-ui,-apple-system,sans-serif; }
+  header{ position:sticky; top:0; z-index:5; background:var(--panel); border-bottom:1px solid var(--line);
+    padding:14px 20px; display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
+  h1{ font-size:17px; margin:0; font-weight:600; }
+  .sp{ flex:1; }
+  button, label.file{ font:500 13px/1 system-ui,sans-serif; cursor:pointer; border-radius:100px;
+    border:1px solid var(--line); background:transparent; color:var(--ink); padding:10px 15px; }
+  button.go{ background:var(--teal); border-color:var(--teal); color:#07120F; }
+  button:disabled{ opacity:.45; cursor:default; }
+  .count{ font:500 12px/1 ui-monospace,monospace; color:var(--mut); }
+  main{ padding:18px 20px 60px; max-width:1400px; margin:0 auto; }
+  .place{ background:var(--panel); border:1px solid var(--line); border-radius:14px;
+    padding:16px 18px; margin-bottom:16px; }
+  .ph-h{ display:flex; gap:12px; align-items:baseline; flex-wrap:wrap; margin-bottom:12px; }
+  .ph-h b{ font-size:17px; }
+  .ph-h i{ font-style:normal; font:500 11px/1 ui-monospace,monospace; color:var(--mut);
+    text-transform:uppercase; letter-spacing:.08em; }
+  .fault{ color:var(--bad); font:500 11px/1 ui-monospace,monospace; text-transform:uppercase; letter-spacing:.08em; }
+  .row{ display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:12px; }
+  figure{ margin:0; border:2px solid transparent; border-radius:10px; overflow:hidden;
+    background:var(--bg); cursor:pointer; transition:border-color .12s; }
+  figure:hover{ border-color:var(--mut); }
+  figure.on{ border-color:var(--teal); }
+  figure.cur{ border-style:dashed; border-color:var(--bad); }
+  figure img{ display:block; width:100%; height:150px; object-fit:cover; background:var(--line); }
+  figcaption{ padding:8px 10px; font-size:11.5px; line-height:1.45; color:var(--mut); }
+  figcaption b{ display:block; color:var(--ink); font-weight:600; font-size:12px;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .sc{ float:right; font:600 11px/1 ui-monospace,monospace; color:var(--gold); }
+  .skip{ margin-top:10px; }
+  .empty{ color:var(--mut); font-size:13px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Pick the photographs</h1>
+  <label class="file">Load candidates…
+    <input type="file" id="f" accept="application/json" hidden>
+  </label>
+  <span class="count" id="count">no file loaded</span>
+  <span class="sp"></span>
+  <button id="dl" class="go" disabled>Download picks.json</button>
+</header>
+
+<main id="out">
+  <p class="empty">Run <code>node tools/fix-photos.js --fetch</code>, then load
+  <code>tools/out/photo-candidates.json</code> above. Click the photograph you want for each
+  place — the dashed red one is what the site shows now. Anything you do not pick is left alone.</p>
+</main>
+
+<script>
+let DATA = [], PICKS = {};
+
+document.getElementById('f').addEventListener('change', async e => {
+  const file = e.target.files[0]; if (!file) return;
+  DATA = JSON.parse(await file.text());
+  PICKS = {};
+  render();
+});
+
+function render(){
+  const out = document.getElementById('out');
+  out.innerHTML = DATA.map((p, i) => {
+    const cur = p.current
+      ? '<figure class="cur" title="what the site shows now">'
+        + '<img loading="lazy" src="' + p.current.url + '" alt="">'
+        + '<figcaption><b>Current</b>' + esc(p.current.file) + '</figcaption></figure>'
+      : '';
+    const cands = (p.candidates || []).map((c, k) =>
+        '<figure data-p="' + i + '" data-c="' + k + '">'
+        + '<img loading="lazy" src="' + (c.thumb || c.url) + '" alt="">'
+        + '<figcaption><span class="sc">' + c.score + '</span><b>' + esc(c.file) + '</b>'
+        + esc(c.source) + ' · ' + (c.w || '?') + '×' + (c.h || '?')
+        + (c.lic ? ' · ' + esc(c.lic) : '') + (c.by ? ' · ' + esc(c.by) : '')
+        + '</figcaption></figure>').join('');
+    return '<section class="place">'
+      + '<div class="ph-h"><b>' + esc(p.name) + '</b><i>' + esc(p.state) + ' · ' + esc(p.kind)
+      + '</i><span class="fault">' + esc(p.fault) + '</span></div>'
+      + '<div class="row">' + cur + (cands || '<p class="empty">Nothing found — leave as is.</p>') + '</div>'
+      + '</section>';
+  }).join('');
+
+  out.querySelectorAll('figure[data-c]').forEach(fig => {
+    fig.onclick = () => {
+      const pi = +fig.dataset.p, ci = +fig.dataset.c;
+      const sec = fig.closest('.place');
+      const already = fig.classList.contains('on');
+      sec.querySelectorAll('figure').forEach(x => x.classList.remove('on'));
+      if (already){ delete PICKS[DATA[pi].id]; }
+      else { fig.classList.add('on'); PICKS[DATA[pi].id] = DATA[pi].candidates[ci]; }
+      tally();
+    };
+  });
+  tally();
+}
+
+function tally(){
+  const n = Object.keys(PICKS).length;
+  document.getElementById('count').textContent = DATA.length + ' places · ' + n + ' picked';
+  document.getElementById('dl').disabled = !n;
+}
+
+document.getElementById('dl').onclick = () => {
+  const blob = new Blob([JSON.stringify(PICKS, null, 1)], { type:'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'picks.json';
+  a.click();
+};
+
+function esc(t){ return String(t == null ? '' : t)
+  .replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+</script>
+</body>
+</html>

@@ -174,6 +174,14 @@ function photoRoute(kind){
 function loadImage(url, w, ok, fail){
   if (!url){ if (fail) fail(); return; }
 
+  /* A 400-pixel picture on a 2x screen is a 400-pixel picture
+     stretched to 800 — which is exactly what "the photos look worse
+     than they did" means. Ask for what the screen actually has. */
+  if (w){
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    w = Math.min(2000, Math.round(w * dpr));
+  }
+
   let list = photoVariants(url, w);
   if (PHOTO_ROUTE){
     const good = list.filter(v => v[0] === PHOTO_ROUTE);
@@ -210,7 +218,7 @@ function paintPhoto(el, place){
     /* No credit chip over the picture: it covered the thing the
        picture is of. Attribution lives in the page footer, and the
        photographer is on the image itself as a tooltip. */
-    loadImage(p.thumb || p.src, 400, img => {
+    loadImage(p.thumb || p.src, 480, img => {
       img.alt = place.name;
       img.title = [p.by, p.lic].filter(Boolean).join(' · ');
       el.innerHTML = '';

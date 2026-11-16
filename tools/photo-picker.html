@@ -1,0 +1,363 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meridian — photo picker</title>
+<style>
+  :root{
+    --bg:#F7F5EF; --panel:#fff; --panel2:#F0ECE1; --line:#E2DDD0; --ink:#20251F;
+    --mut:#6E7468; --faint:#9A9B8E; --gold:#B07D22; --teal:#2F7F6C; --bad:#B4453F;
+    color-scheme:light;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{ --bg:#11140F; --panel:#181C16; --panel2:#1F241D; --line:#2A3028; --ink:#E9ECE5;
+      --mut:#8A9286; --faint:#5C6459; --gold:#E3AC56; --teal:#5FB3A1; --bad:#D4746D;
+      color-scheme:dark; }
+  }
+  *{ box-sizing:border-box; }
+  html,body{ height:100%; }
+  body{ margin:0; background:var(--bg); color:var(--ink);
+    font:400 15px/1.5 system-ui,-apple-system,sans-serif; display:flex; flex-direction:column; }
+
+  header{ background:var(--panel); border-bottom:1px solid var(--line);
+    padding:12px 18px; display:flex; gap:14px; align-items:center; flex-wrap:wrap; }
+  header h1{ font-size:16px; margin:0; font-weight:600; }
+  .grow{ flex:1; }
+  .pill{ font:500 12px/1 ui-monospace,monospace; color:var(--mut);
+    background:var(--panel2); border:1px solid var(--line); border-radius:100px; padding:7px 11px; }
+  button{ font:500 13px/1 system-ui,sans-serif; cursor:pointer; border-radius:100px;
+    border:1px solid var(--line); background:transparent; color:var(--ink); padding:9px 14px; }
+  button:hover{ border-color:var(--mut); }
+  button.go{ background:var(--teal); border-color:var(--teal); color:#07120F; }
+  button:disabled{ opacity:.4; cursor:default; }
+
+  .body{ flex:1; display:grid; grid-template-columns:260px 1fr; min-height:0; }
+  nav{ border-right:1px solid var(--line); overflow-y:auto; background:var(--panel); }
+  nav .filt{ position:sticky; top:0; background:var(--panel); border-bottom:1px solid var(--line);
+    padding:10px; display:flex; flex-direction:column; gap:8px; }
+  nav input[type=search]{ width:100%; font:400 13px/1 system-ui,sans-serif; color:var(--ink);
+    background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:9px 10px; outline:none; }
+  nav .toggle{ display:flex; gap:6px; }
+  nav .toggle button{ flex:1; padding:7px 0; font-size:12px; }
+  nav .toggle button.on{ background:var(--teal); border-color:var(--teal); color:#07120F; }
+  .nitem{ display:flex; gap:9px; align-items:center; width:100%; text-align:left;
+    border:0; border-bottom:1px solid var(--line); border-radius:0; padding:9px 11px; background:none; }
+  .nitem:hover{ background:var(--panel2); }
+  .nitem.on{ background:var(--panel2); box-shadow:inset 3px 0 0 var(--teal); }
+  .nitem .dot{ width:8px; height:8px; border-radius:50%; flex:0 0 auto; background:var(--line); }
+  .nitem.flagged .dot{ background:var(--bad); }
+  .nitem.picked .dot{ background:var(--teal); }
+  .nitem b{ font-size:13px; font-weight:600; display:block; overflow:hidden;
+    text-overflow:ellipsis; white-space:nowrap; }
+  .nitem i{ font:400 10.5px/1.3 ui-monospace,monospace; color:var(--faint); font-style:normal; }
+
+  main{ overflow-y:auto; padding:18px 22px 60px; }
+  .phead{ display:flex; gap:12px; align-items:baseline; flex-wrap:wrap; margin-bottom:4px; }
+  .phead h2{ margin:0; font-size:22px; }
+  .phead .st{ font:500 11px/1 ui-monospace,monospace; color:var(--mut);
+    text-transform:uppercase; letter-spacing:.08em; }
+  .phead .fault{ color:var(--bad); font:500 11px/1 ui-monospace,monospace;
+    text-transform:uppercase; letter-spacing:.08em; }
+  .cur{ font-size:12.5px; color:var(--mut); margin:0 0 14px; }
+  .cur code{ font:400 11.5px/1 ui-monospace,monospace; }
+
+  .tools{ display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; }
+  .tools input{ font:400 13px/1 system-ui,sans-serif; color:var(--ink); background:var(--panel);
+    border:1px solid var(--line); border-radius:8px; padding:10px 12px; outline:none; }
+  .tools input.q{ flex:1; min-width:180px; }
+  .tools input.url{ flex:2; min-width:200px; }
+
+  .srcrow{ display:flex; gap:7px; flex-wrap:wrap; margin-bottom:12px; }
+  .srcrow label{ display:inline-flex; align-items:center; gap:6px; font-size:12.5px;
+    color:var(--mut); border:1px solid var(--line); border-radius:100px; padding:6px 11px; cursor:pointer; }
+  .srcrow label input{ accent-color:var(--teal); }
+
+  .grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:12px; }
+  figure{ margin:0; border:2px solid transparent; border-radius:10px; overflow:hidden;
+    background:var(--panel); cursor:pointer; transition:border-color .12s; }
+  figure:hover{ border-color:var(--mut); }
+  figure.on{ border-color:var(--teal); }
+  figure.cur{ border-style:dashed; border-color:var(--bad); }
+  figure img{ display:block; width:100%; height:150px; object-fit:cover; background:var(--panel2); }
+  figcaption{ padding:8px 10px; font-size:11px; line-height:1.45; color:var(--mut); }
+  figcaption b{ display:block; color:var(--ink); font-weight:600; font-size:11.5px;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .tag{ display:inline-block; font:600 9px/1 ui-monospace,monospace; text-transform:uppercase;
+    letter-spacing:.05em; padding:2px 5px; border-radius:4px; margin-right:5px;
+    background:var(--panel2); color:var(--faint); }
+  .tag.ov{ color:var(--teal); } .tag.wm{ color:var(--gold); } .tag.mp{ color:var(--bad); }
+  .loading, .empty{ color:var(--faint); font-size:13px; padding:10px 0; }
+
+  .nav2{ display:flex; gap:10px; margin-top:22px; }
+  .nav2 button{ flex:1; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Photo picker</h1>
+  <span class="pill" id="prog">—</span>
+  <span class="grow"></span>
+  <button id="save" class="go" disabled>Download picks.json</button>
+</header>
+
+<div class="body">
+  <nav>
+    <div class="filt">
+      <input type="search" id="find" placeholder="Find a place…" autocomplete="off">
+      <div class="toggle">
+        <button id="tFlag" class="on">Needs work (33)</button>
+        <button id="tAll">All (402)</button>
+      </div>
+    </div>
+    <div id="list"></div>
+  </nav>
+
+  <main id="main">
+    <p class="empty">Loading places…</p>
+  </main>
+</div>
+
+<script src="photo-needs.js"></script>
+<script>
+/* Mapillary client token — safe to ship, it is the browser key.
+   Replace if it ever stops working. */
+let MAPILLARY = '29609881015369208';
+
+const NEEDS = (window.PHOTO_NEEDS || []).slice();
+const PICKS = {};
+let filter = 'flag', query = '', curId = null;
+
+const $ = s => document.querySelector(s);
+const esc = t => String(t == null ? '' : t)
+  .replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------- sources, all CORS-enabled ---------- */
+
+/* Openverse: a free, keyless aggregator of openly-licensed images —
+   it indexes the Creative Commons photos on Flickr, so it does the
+   job Flickr's own API used to without the paid account. */
+async function fromOpenverse(place, q){
+  try{
+    const r = await fetch('https://api.openverse.org/v1/images/?format=json'
+      + '&q=' + encodeURIComponent(q) + '&page_size=12&mature=false'
+      + '&license_type=all-cc,commercial');
+    if(!r.ok) return [];
+    const j = await r.json();
+    return (j.results || []).filter(x => x.url).map(x => ({
+      source:'openverse', tag:'ov',
+      thumb: x.thumbnail || x.url, url: x.url,
+      title: x.title || 'Openverse image',
+      by: x.creator || '', lic: ((x.license || '') + ' ' + (x.license_version || '')).toUpperCase().trim(),
+      page: x.foreign_landing_url || x.url,
+      w: x.width || 0, h: x.height || 0
+    }));
+  }catch(e){ return []; }
+}
+
+/* Wikimedia Commons: photographs taken at the place, by coordinate. */
+async function fromCommons(place){
+  try{
+    const r = await fetch('https://commons.wikimedia.org/w/api.php?action=query&format=json'
+      + '&origin=*&generator=geosearch&ggscoord=' + place.lat + '%7C' + place.lon
+      + '&ggsradius=6000&ggslimit=20&ggsnamespace=6'
+      + '&prop=imageinfo&iiprop=url%7Csize%7Cextmetadata&iiurlwidth=900');
+    if(!r.ok) return [];
+    const j = await r.json();
+    const pages = j.query && j.query.pages; if(!pages) return [];
+    return Object.values(pages).map(p => {
+      const ii = p.imageinfo && p.imageinfo[0]; if(!ii) return null;
+      if(!/\.(jpe?g|png|webp)$/i.test(ii.url||'')) return null;
+      const m = ii.extmetadata || {};
+      return { source:'commons', tag:'wm',
+        thumb: ii.thumburl || ii.url, url: ii.url,
+        title: String(p.title||'').replace(/^File:/,''),
+        by: m.Artist ? String(m.Artist.value).replace(/<[^>]+>/g,'').trim().slice(0,60) : '',
+        lic: m.LicenseShortName ? m.LicenseShortName.value : '',
+        page: ii.descriptionurl || '', w: ii.width||0, h: ii.height||0 };
+    }).filter(Boolean);
+  }catch(e){ return []; }
+}
+
+/* Mapillary: street-level imagery, which exists almost everywhere
+   even when nothing else does. */
+async function fromMapillary(place){
+  if(!MAPILLARY) return [];
+  try{
+    const d = 0.02, bbox = [place.lon-d, place.lat-d, place.lon+d, place.lat+d].join(',');
+    const r = await fetch('https://graph.mapillary.com/images?access_token=' + MAPILLARY
+      + '&fields=id,thumb_2048_url,thumb_1024_url&bbox=' + bbox + '&limit=10');
+    if(!r.ok) return [];
+    const j = await r.json();
+    return (j.data||[]).filter(x => x.thumb_2048_url || x.thumb_1024_url).map(x => ({
+      source:'mapillary', tag:'mp',
+      thumb: x.thumb_1024_url || x.thumb_2048_url,
+      url: x.thumb_2048_url || x.thumb_1024_url,
+      title:'Street-level view', by:'Mapillary contributor', lic:'CC BY-SA 4.0',
+      page:'https://www.mapillary.com/app/?pKey=' + x.id, w:2048, h:1152 }));
+  }catch(e){ return []; }
+}
+
+/* ---------- scoring, to put the likely-good ones first ---------- */
+const JUNK=/(montage|collage|composite|locator|_map[_.]|map_of|topographic|flag|seal|logo|coat_of_arms|banner|emblem|diagram)/i;
+const GOOD=/(skyline|aerial|downtown|panorama|view|overlook|vista|sunset|falls|canyon|trail|lake|river|beach|coast|harbor|bridge|mountain|valley|dunes|arch|bay|historic)/i;
+function score(c, place){
+  let s = ({openverse:5, commons:7, mapillary:1})[c.source] || 0;
+  const f = (c.title||'').toLowerCase();
+  if(JUNK.test(f)) s -= 40;
+  if(GOOD.test(f)) s += 8;
+  const words = place.name.toLowerCase().split(/[^a-z0-9]+/).filter(w=>w.length>3);
+  const hits = words.filter(w => f.includes(w)).length;
+  if(words.length) s += 22 * (hits/words.length);
+  const w=c.w||0, h=c.h||1, ratio=w/h;
+  if(w>=1400) s+=10; else if(w<700&&w>0) s-=14;
+  if(ratio>=1.2 && ratio<=2.1) s+=12; else if(ratio>3) s-=20; else if(ratio<0.85&&ratio>0) s-=8;
+  if(!c.lic) s-=6;
+  return s;
+}
+
+/* ---------- navigation list ---------- */
+function visible(){
+  let rows = filter==='flag' ? NEEDS.filter(r=>r.fault) : NEEDS;
+  if(query){ const q=query.toLowerCase();
+    rows = rows.filter(r => r.name.toLowerCase().includes(q) || r.abbr.toLowerCase()===q); }
+  return rows;
+}
+function renderList(){
+  const rows = visible();
+  $('#list').innerHTML = rows.map(r =>
+    '<button class="nitem ' + (r.fault?'flagged ':'') + (PICKS[r.id]?'picked ':'')
+      + (r.id===curId?'on':'') + '" data-id="' + r.id + '">'
+    + '<span class="dot"></span><span style="min-width:0">'
+    + '<b>' + esc(r.name) + '</b><i>' + esc(r.abbr) + (r.fault? ' · '+esc(r.fault) : '')
+    + (PICKS[r.id]? ' · picked':'') + '</i></span></button>').join('')
+    || '<p class="empty" style="padding:14px">Nothing matches.</p>';
+  $('#list').querySelectorAll('.nitem').forEach(b =>
+    b.onclick = () => openPlace(b.dataset.id));
+}
+
+/* ---------- a place ---------- */
+let reqSeq = 0;
+async function openPlace(id, customQ){
+  curId = id;
+  const r = NEEDS.find(x => x.id === id); if(!r) return;
+  renderList();
+  const q = customQ != null ? customQ : (r.name + ' ' + r.abbr);
+  /* The toggles live inside the markup this function is about to
+     write, so on the very first open they do not exist yet — default
+     them on rather than reading .checked off null. */
+  const chk = (id, def) => { const el = $('#' + id); return el ? el.checked : def; };
+  const srcOn = { openverse: chk('sOv', true), commons: chk('sWm', true), mapillary: chk('sMp', false) };
+
+  $('#main').innerHTML =
+    '<div class="phead"><h2>' + esc(r.name) + '</h2>'
+    + '<span class="st">' + esc(r.abbr) + ' · ' + esc(r.kind) + '</span>'
+    + (r.fault ? '<span class="fault">' + esc(r.fault) + '</span>' : '') + '</div>'
+    + (r.cur ? '<p class="cur">Now showing: <code>' + esc(r.cur) + '</code></p>'
+             : '<p class="cur">No photo yet.</p>')
+    + '<div class="tools">'
+    +   '<input class="q" id="q" placeholder="Search terms…" value="' + esc(q) + '">'
+    +   '<button id="qgo" class="go">Search</button>'
+    +   '<input class="url" id="url" placeholder="…or paste any image URL">'
+    +   '<button id="urlgo">Use URL</button>'
+    + '</div>'
+    + '<div class="srcrow">'
+    +   '<label><input type="checkbox" id="sOv" ' + (srcOn.openverse?'checked':'') + '> Openverse</label>'
+    +   '<label><input type="checkbox" id="sWm" ' + (srcOn.commons?'checked':'') + '> Commons nearby</label>'
+    +   '<label><input type="checkbox" id="sMp" ' + (srcOn.mapillary?'checked':'') + '> Mapillary</label>'
+    + '</div>'
+    + '<div class="grid" id="grid"><p class="loading">Searching…</p></div>'
+    + '<div class="nav2"><button id="prev">← Previous</button>'
+    +   '<button id="skip">Skip</button><button id="next">Next →</button></div>';
+
+  wirePlace(r, q);
+
+  const my = ++reqSeq;
+  const jobs = [];
+  if(srcOn.openverse) jobs.push(fromOpenverse(r, q));
+  if(srcOn.commons)   jobs.push(fromCommons(r));
+  if(srcOn.mapillary) jobs.push(fromMapillary(r));
+  const got = await Promise.all(jobs);
+  if(my !== reqSeq) return;                 /* a newer search already fired */
+
+  let cands = [].concat.apply([], got);
+  const seen = {};
+  cands = cands.filter(c => { if(seen[c.url]) return false; seen[c.url]=1; return true; })
+               .map(c => Object.assign(c, { score: score(c, r) }))
+               .sort((a,b) => b.score - a.score);
+  renderGrid(r, cands);
+}
+
+function renderGrid(r, cands){
+  const grid = $('#grid');
+  const cur = r.curUrl
+    ? '<figure class="cur" title="what the site shows now"><img loading="lazy" src="'
+      + esc(r.curUrl) + '"><figcaption><b>Current</b>' + esc(r.cur||'') + '</figcaption></figure>'
+    : '';
+  const picked = PICKS[r.id];
+  grid.innerHTML = cur + (cands.map((c,i) =>
+    '<figure class="' + (picked && picked.url===c.url ? 'on':'') + '" data-i="' + i + '">'
+    + '<img loading="lazy" src="' + esc(c.thumb) + '" onerror="this.parentNode.style.display=\'none\'">'
+    + '<figcaption><span class="tag ' + c.tag + '">' + esc(c.source) + '</span>'
+    + (c.w? c.w+'×'+c.h : '') + '<b>' + esc(c.title) + '</b>'
+    + (c.lic? esc(c.lic) : 'no licence') + (c.by? ' · '+esc(c.by):'') + '</figcaption></figure>'
+  ).join('') || (cur ? '' : '<p class="empty">Nothing found. Try different search terms, or paste a URL.</p>'));
+
+  grid.querySelectorAll('figure[data-i]').forEach(fig => {
+    fig.onclick = () => {
+      const c = cands[+fig.dataset.i];
+      const was = PICKS[r.id] && PICKS[r.id].url === c.url;
+      grid.querySelectorAll('figure').forEach(x => x.classList.remove('on'));
+      if(was){ delete PICKS[r.id]; }
+      else { fig.classList.add('on'); PICKS[r.id] = c; }
+      progress(); renderList();
+    };
+  });
+}
+
+function wirePlace(r, q){
+  const search = () => openPlace(r.id, $('#q').value);
+  $('#qgo').onclick = search;
+  $('#q').onkeydown = e => { if(e.key==='Enter'){ e.preventDefault(); search(); } };
+  ['sOv','sWm','sMp'].forEach(id => $('#'+id).onchange = search);
+  $('#urlgo').onclick = () => {
+    const u = $('#url').value.trim(); if(!/^https?:\/\//.test(u)) return;
+    PICKS[r.id] = { source:'manual', tag:'ov', thumb:u, url:u, title:'Pasted URL',
+                    by:'', lic:'', page:u, w:0, h:0 };
+    progress(); renderList(); openPlace(r.id, q);
+  };
+  const vis = visible(), idx = vis.findIndex(x => x.id === r.id);
+  $('#prev').onclick = () => { if(idx>0) openPlace(vis[idx-1].id); };
+  $('#next').onclick = $('#skip').onclick = () => { if(idx<vis.length-1) openPlace(vis[idx+1].id); };
+}
+
+function progress(){
+  const n = Object.keys(PICKS).length;
+  $('#prog').textContent = n + ' picked';
+  $('#save').disabled = !n;
+}
+
+/* ---------- shell ---------- */
+$('#find').oninput = e => { query = e.target.value.trim(); renderList(); };
+$('#tFlag').onclick = () => { filter='flag'; $('#tFlag').classList.add('on'); $('#tAll').classList.remove('on'); renderList(); };
+$('#tAll').onclick  = () => { filter='all';  $('#tAll').classList.add('on');  $('#tFlag').classList.remove('on'); renderList(); };
+$('#save').onclick = () => {
+  const out = {};
+  Object.keys(PICKS).forEach(id => { const c = PICKS[id];
+    out[id] = { url:c.url, by:c.by, lic:c.lic, page:c.page, source:c.source }; });
+  const blob = new Blob([JSON.stringify(out, null, 1)], { type:'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = 'picks.json'; a.click();
+};
+
+if(!NEEDS.length){
+  $('#main').innerHTML = '<p class="empty">Could not load photo-needs.js — keep it next to this file.</p>';
+} else {
+  renderList(); progress();
+  const first = visible()[0];
+  if(first) openPlace(first.id);
+}
+</script>
+</body>
+</html>

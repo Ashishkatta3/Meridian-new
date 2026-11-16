@@ -74,19 +74,50 @@
   let items = [], active = -1;
 
   const close = () => { out.hidden = true; active = -1; };
+  const esc = t => String(t).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+  /* A thumbnail of the country with a dot on it. Knowing that
+     "Grand Canyon Village" is in northern Arizona while you are
+     still typing is worth more than a second line of text, and at
+     this size the SVG the site already has beats loading tiles. */
+  const insetSVG = () => {
+    if (typeof MAP_STATES === 'undefined') return '';
+    return '<svg class="navsearch-map" viewBox="0 0 ' + MAP_VIEW[0] + ' ' + MAP_VIEW[1] + '" aria-hidden="true">'
+      + '<g class="nm-land">' + MAP_STATES.map(s => '<path d="' + s[2] + '"/>').join('') + '</g>'
+      + '<circle class="nm-dot" id="navDot" r="11" cx="-99" cy="-99"/>'
+      + '<circle class="nm-ring" id="navRing" r="11" cx="-99" cy="-99"/>'
+      + '</svg>';
+  };
+  const moveDot = r => {
+    const dot = out.querySelector('#navDot'), ring = out.querySelector('#navRing');
+    if (!dot) return;
+    const base = r ? r.id.split('#')[0] : '';
+    const xy = (typeof MAP_XY !== 'undefined') && MAP_XY[base];
+    if (!xy){ dot.setAttribute('cx', -99); ring.setAttribute('cx', -99); return; }
+    [dot, ring].forEach(c => { c.setAttribute('cx', xy[0]); c.setAttribute('cy', xy[1]); });
+    const p = (typeof placeGet === 'function') && placeGet(base);
+    const lab = out.querySelector('#navWhere');
+    if (lab) lab.textContent = p ? p.name + ', ' + (typeof stateName === 'function' ? stateName(p.abbr) : p.abbr) : '';
+  };
 
   const paint = () => {
     if (!items.length){
       out.innerHTML = '<p class="navsearch-none">Nothing matching.</p>';
       out.hidden = false; return;
     }
-    out.innerHTML = items.map((r, i) =>
-      '<button class="navsearch-r' + (i === active ? ' is-on' : '') + '" data-go="' + r.id + '">'
-      + '<b>' + r.name.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])) + '</b>'
-      + '<i>' + r.sub.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))
-      + (r.isPlace ? '' : ' · thing to do') + '</i></button>').join('');
+    out.innerHTML = '<div class="navsearch-rows">' + items.map((r, i) =>
+        '<button class="navsearch-r' + (i === active ? ' is-on' : '') + '" data-go="' + r.id + '" data-i="' + i + '">'
+        + '<b>' + esc(r.name) + '</b>'
+        + '<i>' + esc(r.sub) + (r.isPlace ? '' : ' · thing to do') + '</i></button>').join('')
+      + '</div>'
+      + '<div class="navsearch-inset">' + insetSVG()
+      + '<span class="navsearch-where" id="navWhere"></span></div>';
     out.hidden = false;
-    out.querySelectorAll('[data-go]').forEach(b => b.onclick = () => go(b.dataset.go));
+    out.querySelectorAll('[data-go]').forEach(b => {
+      b.onclick = () => go(b.dataset.go);
+      b.onpointerenter = () => moveDot(items[+b.dataset.i]);
+    });
+    moveDot(items[active < 0 ? 0 : active]);
   };
 
   const go = id => {

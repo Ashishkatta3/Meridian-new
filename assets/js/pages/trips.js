@@ -17,7 +17,11 @@ const TR_GEO  = ['beach','mountain','desert','canyon','forest','water','island',
 const TR_WHO  = ['couple','family','friends','honeymoon','solo','group'];
 const TR_FLAG = ['food','nightlife','hiking','camping','darksky','wildlife','winter','roadtrip','history','water'];
 
-let TR_STATE = { axis: 'land', tag: 'beach', st: '' };
+/* One choice per axis rather than one choice in total: "a beach,
+   good for families, known for its food" is a real question and the
+   old single-selection could not ask it. Pressing a chip that is
+   already on turns it off again. */
+let TR_SEL = { land: 'beach', who: '', flags: '', st: '' };
 let TR_TAB = 'ideas';                    /* ideas | road | bucket */
 let TR_BUCKET = { cat: '', st: '', price: '', weather: '' };
 
@@ -40,8 +44,9 @@ function renderTrips(){
      + group('Who it suits', 'who', TR_WHO)
      + group('Known for', 'flags', TR_FLAG)
      + '<div class="tr-g"><span class="tr-g-l">State</span><select id="trState"><option value="">Anywhere</option>'
-     + MAP_STATES.map(s => '<option value="' + s[0] + '"' + (TR_STATE.st === s[0] ? ' selected' : '') + '>' + plEsc(s[1]) + '</option>').join('')
+     + MAP_STATES.map(s => '<option value="' + s[0] + '"' + (TR_SEL.st === s[0] ? ' selected' : '') + '>' + plEsc(s[1]) + '</option>').join('')
      + '</select></div>'
+     + (trAny() ? '<button class="tr-clear" id="trClear">Clear all</button>' : '')
      + '</div>';
 
   h += '<div id="trGrid">' + grid() + '</div>';
@@ -49,8 +54,9 @@ function renderTrips(){
 
   function group(label, axis, tags){
     return '<div class="tr-g"><span class="tr-g-l">' + label + '</span><div class="tr-chips">'
-      + tags.map(t => '<button class="tr-chip' + (TR_STATE.axis === axis && TR_STATE.tag === t ? ' is-on' : '') + '"'
-        + ' data-axis="' + axis + '" data-tag="' + t + '">' + plEsc(trLabel(axis, t)) + '</button>').join('')
+      + tags.map(t => '<button class="tr-chip' + (TR_SEL[axis] === t ? ' is-on' : '') + '"'
+        + ' data-axis="' + axis + '" data-tag="' + t + '" aria-pressed="' + (TR_SEL[axis] === t) + '">'
+        + plEsc(trLabel(axis, t)) + '</button>').join('')
       + '</div></div>';
   }
 }
@@ -68,17 +74,34 @@ function trNote(axis, tag){
   return (map && map[tag] && map[tag][1]) || '';
 }
 
-function grid(){
-  const { axis, tag, st } = TR_STATE;
-  let ids = placesWithTag(axis, tag);
-  if (st) ids = ids.filter(id => placeGet(id).abbr === st);
+function trAny(){ return !!(TR_SEL.land || TR_SEL.who || TR_SEL.flags || TR_SEL.st); }
 
-  let h = '<div class="tr-head"><h2>' + plEsc(trLabel(axis, tag)) + '</h2>'
-        + '<p class="pg-sub">' + plEsc(trNote(axis, tag)) + '</p>'
-        + (axis === 'who' ? '<p class="pg-note">A suggestion, not a measurement — worked out from what each place is, since nothing free records who actually travels where.</p>' : '')
+function grid(){
+  /* every chosen axis narrows the set; an axis with nothing chosen
+     simply does not narrow it */
+  const axes = ['land', 'who', 'flags'].filter(a => TR_SEL[a]);
+  let ids = null;
+  axes.forEach(a => {
+    const set = placesWithTag(a, TR_SEL[a]);
+    ids = ids === null ? set.slice() : ids.filter(id => set.indexOf(id) !== -1);
+  });
+  if (ids === null) ids = Object.keys(PLACES).sort((a, b) =>
+    (placeGet(b).prom || 0) - (placeGet(a).prom || 0));
+  if (TR_SEL.st) ids = ids.filter(id => placeGet(id).abbr === TR_SEL.st);
+
+  const title = axes.length ? axes.map(a => trLabel(a, TR_SEL[a])).join(' · ')
+                            : 'The whole atlas';
+  const note = axes.length === 1 ? trNote(axes[0], TR_SEL[axes[0]])
+             : axes.length ? 'Places that are all of these at once.'
+             : 'Everywhere in the atlas, most popular first. Narrow it with the filters above.';
+
+  let h = '<div class="tr-head"><h2>' + plEsc(title) + '</h2>'
+        + '<p class="pg-sub">' + plEsc(note) + '</p>'
+        + (TR_SEL.who ? '<p class="pg-note">Who it suits is a suggestion, not a measurement — worked out from what each place is, since nothing free records who actually travels where.</p>' : '')
         + '<p class="pg-note">' + ids.length + ' place' + (ids.length === 1 ? '' : 's') + '</p></div>';
 
-  if (!ids.length) return h + '<div class="pg-empty"><p>Nothing here with that combination.</p></div>';
+  if (!ids.length) return h + '<div class="pg-empty"><p>Nothing is all of those at once.</p>'
+    + '<p class="pg-note">Turn one of the filters off — pressing a chip that is already on clears it.</p></div>';
 
   h += '<div class="tr-grid">' + ids.slice(0, 60).map(id => {
     const p = placeGet(id), m = markOf(id);
@@ -110,20 +133,29 @@ function mountTrips(host){
   });
 
   /* bucket list filters */
-  host.querySelectorAll('[data-bcat]').forEach(b => b.onclick = () => { TR_BUCKET.cat = b.dataset.bcat; mountTrips(host); });
-  host.querySelectorAll('[data-bprice]').forEach(b => b.onclick = () => { TR_BUCKET.price = b.dataset.bprice; mountTrips(host); });
-  host.querySelectorAll('[data-bwx]').forEach(b => b.onclick = () => { TR_BUCKET.weather = b.dataset.bwx; mountTrips(host); });
+  host.querySelectorAll('[data-bcat]').forEach(b => b.onclick = () => {
+    TR_BUCKET.cat = (TR_BUCKET.cat === b.dataset.bcat) ? '' : b.dataset.bcat;
+    mountTrips(host);
+  });
+  host.querySelectorAll('[data-bprice]').forEach(b => b.onclick = () => {
+    TR_BUCKET.price = (TR_BUCKET.price === b.dataset.bprice) ? '' : b.dataset.bprice; mountTrips(host); });
+  host.querySelectorAll('[data-bwx]').forEach(b => b.onclick = () => {
+    TR_BUCKET.weather = (TR_BUCKET.weather === b.dataset.bwx) ? '' : b.dataset.bwx; mountTrips(host); });
   const bks = host.querySelector('#bkState');
   if (bks) bks.onchange = () => { TR_BUCKET.st = bks.value; mountTrips(host); };
   host.querySelectorAll('.bk-add').forEach(b => b.onclick = () => addToTrip(b.dataset.add));
 
+  /* One choice per axis, and pressing the one that is already on
+     turns it off — a filter you cannot clear is a trap. */
   host.querySelectorAll('[data-axis]').forEach(b => b.onclick = () => {
-    TR_STATE.axis = b.dataset.axis; TR_STATE.tag = b.dataset.tag;
-    host.querySelectorAll('[data-axis]').forEach(x => x.classList.toggle('is-on', x === b));
-    refresh();
+    const axis = b.dataset.axis, tag = b.dataset.tag;
+    TR_SEL[axis] = TR_SEL[axis] === tag ? '' : tag;
+    mountTrips(host);
   });
   const sel = host.querySelector('#trState');
-  if (sel) sel.onchange = () => { TR_STATE.st = sel.value; refresh(); };
+  if (sel) sel.onchange = () => { TR_SEL.st = sel.value; refresh(); };
+  const clr = host.querySelector('#trClear');
+  if (clr) clr.onclick = () => { TR_SEL = { land:'', who:'', flags:'', st:'' }; mountTrips(host); };
 
   function refresh(){ host.querySelector('#trGrid').innerHTML = grid(); paintGrid(); }
   function paintGrid(){ host.querySelectorAll('[data-pgphoto]').forEach(el => pgPhoto(el, placeGet(el.dataset.pgphoto))); }

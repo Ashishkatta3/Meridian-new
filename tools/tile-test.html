@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meridian — which map tiles actually work</title>
+<style>
+  :root{ --bg:#F7F5EF; --panel:#fff; --line:#E2DDD0; --ink:#20251F; --mut:#6E7468;
+         --ok:#2F7F6C; --bad:#B4453F; --warn:#B07D22; color-scheme:light; }
+  @media (prefers-color-scheme:dark){
+    :root{ --bg:#11140F; --panel:#181C16; --line:#2A3028; --ink:#E9ECE5; --mut:#8A9286;
+           --ok:#5FB3A1; --bad:#D4746D; --warn:#E3AC56; color-scheme:dark; }
+  }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--bg); color:var(--ink);
+        font:400 15px/1.6 system-ui,-apple-system,sans-serif; }
+  .wrap{ max-width:900px; margin:0 auto; padding:30px 20px 70px; }
+  h1{ font-size:21px; margin:0 0 8px; }
+  p.lede{ color:var(--mut); margin:0 0 24px; max-width:62ch; }
+  .row{ background:var(--panel); border:1px solid var(--line); border-radius:12px;
+        padding:14px 16px; margin-bottom:12px; display:grid;
+        grid-template-columns:128px 1fr; gap:14px; align-items:center; }
+  .tiles{ display:flex; gap:4px; }
+  .tiles img{ width:62px; height:62px; border-radius:5px; background:var(--line);
+              object-fit:cover; display:block; }
+  h2{ font-size:15px; margin:0 0 3px; font-weight:600; }
+  code{ font:400 11.5px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;
+        word-break:break-all; color:var(--mut); display:block; }
+  .verdict{ font:600 12px/1 ui-monospace,monospace; letter-spacing:.06em;
+            text-transform:uppercase; margin-top:7px; }
+  .v-ok{ color:var(--ok); } .v-bad{ color:var(--bad); } .v-warn{ color:var(--warn); }
+  .v-wait{ color:var(--mut); }
+  #result{ background:var(--panel); border:2px solid var(--ok); border-radius:12px;
+           padding:18px 20px; margin-top:26px; }
+  #result h2{ font-size:16px; margin-bottom:10px; }
+  pre{ background:var(--bg); border:1px solid var(--line); border-radius:8px;
+       padding:12px 14px; overflow-x:auto; margin:10px 0 0;
+       font:400 12.5px/1.7 ui-monospace,monospace; }
+  button{ font:500 13px/1 system-ui,sans-serif; cursor:pointer; border-radius:100px;
+          border:1px solid var(--line); background:transparent; color:var(--ink);
+          padding:10px 16px; margin-top:12px; }
+  button:hover{ border-color:var(--ok); color:var(--ok); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Which map tiles actually work?</h1>
+<p class="lede">Each provider below is asked for two tiles from opposite sides of the
+country. A provider that is refusing serves the <em>same</em> picture for both, because
+it is a notice rather than a map — that is how "Access blocked" and "API key required"
+got drawn across the map without anything reporting an error. Whichever provider returns
+two different pictures is one that works from here.</p>
+
+<div id="rows"></div>
+
+<div id="result" hidden>
+  <h2 id="rh"></h2>
+  <p id="rp"></p>
+  <pre id="rc"></pre>
+  <button id="copy">Copy these two lines</button>
+</div>
+
+</div>
+
+<script>
+/* Downtown Chicago and open country in eastern Oregon: no real map
+   draws these the same. */
+const A = { z:7, x:32, y:47 }, B = { z:7, x:22, y:45 };
+
+const PROVIDERS = [
+  { id:'esri-street', name:'Esri — World Street Map',
+    url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+    attr:'Tiles © Esri' },
+  { id:'esri-topo', name:'Esri — World Topo Map',
+    url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}',
+    attr:'Tiles © Esri' },
+  { id:'esri-imagery', name:'Esri — World Imagery (satellite)',
+    url:'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    attr:'Tiles © Esri' },
+  { id:'esri-gray', name:'Esri — Light Gray Canvas',
+    url:'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Light_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+    attr:'Tiles © Esri' },
+  { id:'carto-light', name:'CARTO — Light (no key)',
+    url:'https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png',
+    attr:'© OpenStreetMap contributors © CARTO' },
+  { id:'carto-voyager', name:'CARTO — Voyager',
+    url:'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+    attr:'© OpenStreetMap contributors © CARTO' },
+  { id:'opentopo', name:'OpenTopoMap',
+    url:'https://a.tile.opentopomap.org/{z}/{x}/{y}.png',
+    attr:'© OpenStreetMap contributors, SRTM | © OpenTopoMap (CC-BY-SA)' },
+  { id:'osm', name:'OpenStreetMap standard',
+    url:'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attr:'© OpenStreetMap contributors' },
+  { id:'wikimedia', name:'Wikimedia Maps',
+    url:'https://maps.wikimedia.org/osm-intl/{z}/{x}/{y}.png',
+    attr:'© OpenStreetMap contributors | Wikimedia' }
+];
+
+const at = (u, t) => u.replace('{z}', t.z).replace('{x}', t.x).replace('{y}', t.y);
+
+function print(url){
+  return new Promise(res => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    const to = setTimeout(() => res({ state:'timeout' }), 10000);
+    img.onerror = () => { clearTimeout(to); res({ state:'error' }); };
+    img.onload = () => {
+      clearTimeout(to);
+      try {
+        const c = document.createElement('canvas');
+        c.width = 16; c.height = 16;
+        const g = c.getContext('2d', { willReadFrequently:true });
+        g.drawImage(img, 0, 0, 16, 16);
+        const d = g.getImageData(0, 0, 16, 16).data;
+        let f = '';
+        for (let i = 0; i < d.length; i += 16) f += d[i].toString(16);
+        res({ state:'ok', print:f });
+      } catch(e){ res({ state:'tainted' }); }
+    };
+    img.src = url;
+  });
+}
+
+const rows = document.getElementById('rows');
+PROVIDERS.forEach(p => {
+  const el = document.createElement('div');
+  el.className = 'row'; el.id = 'r-' + p.id;
+  el.innerHTML = '<div class="tiles">'
+    + '<img src="' + at(p.url, A) + '" alt="" crossorigin="anonymous">'
+    + '<img src="' + at(p.url, B) + '" alt="" crossorigin="anonymous"></div>'
+    + '<div><h2>' + p.name + '</h2><code>' + p.url + '</code>'
+    + '<div class="verdict v-wait" id="v-' + p.id + '">testing…</div></div>';
+  rows.appendChild(el);
+});
+
+(async () => {
+  const winners = [];
+  for (const p of PROVIDERS){
+    const [a, b] = await Promise.all([print(at(p.url, A)), print(at(p.url, B))]);
+    const v = document.getElementById('v-' + p.id);
+    let cls = 'v-bad', text;
+
+    if (a.state !== 'ok' && a.state !== 'tainted'){
+      text = 'did not load (' + a.state + ')';
+    } else if (a.state === 'tainted' || b.state === 'tainted'){
+      cls = 'v-warn'; text = 'loads, but sends no CORS header — usable, untestable';
+      winners.push(Object.assign({ rank: 2 }, p));
+    } else if (a.print === b.print){
+      text = 'refusing — both tiles are the same picture';
+    } else {
+      cls = 'v-ok'; text = 'works';
+      winners.push(Object.assign({ rank: 1 }, p));
+    }
+    v.className = 'verdict ' + cls;
+    v.textContent = text;
+  }
+
+  const box = document.getElementById('result');
+  winners.sort((x, y) => x.rank - y.rank);
+  if (!winners.length){
+    box.style.borderColor = 'var(--bad)';
+    document.getElementById('rh').textContent = 'None of them worked.';
+    document.getElementById('rp').textContent =
+      'That points at something between this browser and the whole internet — a network '
+      + 'filter, a blocking extension, or an offline machine — rather than at any one '
+      + 'provider. Try again on another network and send me the result.';
+    document.getElementById('rc').hidden = true;
+    document.getElementById('copy').hidden = true;
+  } else {
+    const w = winners[0];
+    document.getElementById('rh').textContent = w.name + ' works. Use it.';
+    document.getElementById('rp').textContent =
+      'Replace the two TILE_ lines in assets/js/core/config.js with these, then bump ?v= '
+      + 'in index.html.' + (winners.length > 1
+        ? ' Also working: ' + winners.slice(1).map(x => x.name).join(', ') + '.' : '');
+    const code = "const TILE_URL  = '" + w.url + "';\n"
+               + "const TILE_ATTR = '" + w.attr + "';";
+    document.getElementById('rc').textContent = code;
+    document.getElementById('copy').onclick = () => {
+      navigator.clipboard.writeText(code).then(
+        () => { document.getElementById('copy').textContent = 'Copied'; },
+        () => { document.getElementById('copy').textContent = 'Select the text above instead'; });
+    };
+  }
+  box.hidden = false;
+})();
+</script>
+</body>
+</html>

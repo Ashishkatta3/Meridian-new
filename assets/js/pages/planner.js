@@ -58,6 +58,10 @@ function renderTrip(id){
     +   '</div>'
     + '</div>';
 
+  /* What the trip actually costs, in miles, hours and dollars.
+     Filled in by wireTotals() once the router answers. */
+  h += '<div class="pg-totals" id="pgTotals" hidden></div>';
+
   /* add places */
   h += '<div class="pg-add">'
      + '<input id="pgSearch" type="search" placeholder="Search the atlas to add a place…" autocomplete="off">'
@@ -74,10 +78,20 @@ function renderTrip(id){
   h += '<div id="pgStay" hidden>' + stayPanel(t) + '</div>';
 
   /* the board */
-  h += '<div id="pgBoard"><div class="pg-board">';
+  /* The board and a real map of it, side by side: a kanban of place
+     names tells you the order but never the shape of the drive. The
+     pins are numbered in visiting order and redraw on every change. */
+  h += '<div id="pgBoard" class="pg-split">'
+     +   '<div class="pg-board-wrap"><div class="pg-board">';
   t.days.forEach(d => { h += dayColumn(t, d); });
   h += ideasColumn(t);
-  h += '</div></div>';
+  h += '</div></div>'
+     +   '<aside class="pg-mapwrap">'
+     +     '<div class="pg-map" id="pgMap"><div class="pg-map-wait">Loading the map…</div></div>'
+     +     '<p class="pg-map-note" id="pgMapNote">Pins are numbered in visiting order. '
+     +       'Hover a stop and the map goes to it.</p>'
+     +   '</aside>'
+     + '</div>';
 
   h += '<p class="pg-note pg-share" id="shareNote"></p>';
   return h + '</section>';
@@ -108,9 +122,10 @@ function legHTML(fromParent, toParent){
 }
 
 function dayColumn(t, d){
-  let h = '<div class="pg-col" data-list="' + d.id + '">'
+  let h = '<div class="pg-col" data-list="' + d.id + '" data-day-col="' + d.id + '">'
         + '<div class="pg-col-h"><span class="pg-col-t" contenteditable="true" data-day="' + d.id + '" spellcheck="false">' + plEsc(d.label) + '</span>'
         + (t.days.length > 1 ? '<button class="pg-x" data-delday="' + d.id + '" title="Remove day">&times;</button>' : '')
+        + '<span class="pg-col-load" data-dayload="' + d.id + '"></span>'
         + '</div><div class="pg-drop" data-list="' + d.id + '">';
   if (!d.stops.length) h += '<p class="pg-blank">Drag a place here</p>';
   h += renderGroups(t, d.stops, d.id);
@@ -337,6 +352,9 @@ function addFromRow(t){
 /* ---------- mount ---------- */
 function mountPlanner(host, tripIdOrNull){
   const repaint = () => mountPlanner(host, tripIdOrNull);
+  /* the board is rebuilt wholesale on every change, so a map left
+     over from the last paint is pointing at a node that is gone */
+  if (typeof PG_MAP !== 'undefined' && PG_MAP){ PG_MAP.destroy(); PG_MAP = null; }
   host.innerHTML = tripIdOrNull ? renderTrip(tripIdOrNull) : renderPlannerList();
   window.scrollTo(0, 0);
   host.querySelectorAll('[data-pgphoto]').forEach(el => pgPhoto(el, placeGet(el.dataset.pgphoto)));  // ids here are already place ids
@@ -382,6 +400,11 @@ function mountPlanner(host, tripIdOrNull){
   host.querySelectorAll('[data-ptab]').forEach(b => b.onclick = () => showTab(b.dataset.ptab));
   showTab(PG_TAB);
   wireStay(host, id, repaint);
+
+  /* The map and the totals are rebuilt on every repaint, which is
+     every time a stop moves — that is the whole point of them. */
+  if (typeof wirePlannerMap === 'function') wirePlannerMap(host, id, repaint);
+  if (typeof wireTotals === 'function') wireTotals(host, id);
 
   on('#addDay', () => { tripAddDay(id); repaint(); });
   on('#shareTrip', () => openShare(id));
@@ -676,7 +699,7 @@ function pgPhoto(el, place){
   if (!el || !place) return;
   placePhoto(place).then(p => {
     if (!p || !p.src) { el.classList.add('is-empty'); return; }
-    loadImage(p.thumb || p.src, 220,
+    loadImage(p.thumb || p.src, 300,
       img => { el.style.backgroundImage = 'url("' + img.src + '")'; el.classList.add('is-on'); },
       () => el.classList.add('is-empty'));
   });
@@ -746,4 +769,146 @@ function openShare(id){
             '<span class="pk-person">' + plEsc(e) + '</span>').join('') : '');
     });
   }
+}
+
+/* ===========================================================
+   THE MAP BESIDE THE BOARD
+
+   Numbered in visiting order, redrawn whenever a stop moves. The
+   board says what order you are doing things in; this says what
+   that order actually means in driving.
+   =========================================================== */
+let PG_MAP = null;
+
+/* Every stop on the trip, in order, as a point on the ground. */
+function tripPoints(t){
+  const out = [], seen = {};
+  const add = (sid, dayId) => {
+    const info = stopInfo(sid); if (!info) return;
+    const key = info.kind === 'spot' ? info.parent : sid;
+    if (seen[key]) return; seen[key] = 1;
+    const p = placeGet(key) || (typeof info.lat === 'number' ? info : null);
+    if (!p || typeof p.lat !== 'number') return;
+    out.push({ id: key, stopId: sid, day: dayId, lat: p.lat, lon: p.lon,
+               name: p.name || info.name, abbr: p.abbr || '' });
+  };
+  t.days.forEach(d => d.stops.forEach(sid => add(sid, d.id)));
+  /* Ideas come last and belong to no day, so they still appear on the
+     map and in the totals without making any day look overloaded. */
+  t.ideas.forEach(sid => add(sid, 'ideas'));
+  return out;
+}
+
+async function wirePlannerMap(host, id, repaint){
+  const slot = host.querySelector('#pgMap');
+  const note = host.querySelector('#pgMapNote');
+  if (!slot) return;
+  const t = tripGet(id); if (!t) return;
+  const pts = tripPoints(t);
+
+  if (!PG_MAP){
+    PG_MAP = await tileMap(slot, {
+      lat: pts.length ? pts[0].lat : 39.5, lon: pts.length ? pts[0].lon : -98.5,
+      zoom: 5, single: 11, maxFit: 11, wheel: false,
+      onPick: pid => {
+        const card = host.querySelector('[data-stop="' + pid + '"]');
+        if (card) card.scrollIntoView({ behavior:'smooth', block:'center' });
+      }
+    });
+    if (!PG_MAP){
+      slot.innerHTML = '<p class="pg-map-wait">The map could not load — the itinerary still works.</p>';
+      return;
+    }
+  }
+
+  const items = pts.map((p, i) => ({ id: p.id, lat: p.lat, lon: p.lon, name: p.name, n: i + 1 }));
+  PG_MAP.set(items).route(items).fit().resize();
+  if (note){
+    note.textContent = items.length
+      ? items.length + ' stops, numbered in visiting order. Hover one and the map goes to it.'
+      : 'Add a stop and it appears here.';
+  }
+
+  /* hovering a card moves the map; the two are one thing now */
+  host.querySelectorAll('[data-stop]').forEach(card => {
+    const sid = card.dataset.stop;
+    const info = stopInfo(sid);
+    const key = info ? (info.kind === 'spot' ? info.parent : sid) : sid;
+    card.addEventListener('pointerenter', () => { if (PG_MAP.has(key)) PG_MAP.focus(key); });
+    card.addEventListener('pointerleave', () => PG_MAP.blur());
+  });
+}
+
+/* ===========================================================
+   WHAT THE TRIP COSTS
+
+   Real road distance from OSRM where it answers, the straight-line
+   estimate where it does not, and this week's regional fuel price
+   from the EIA. A day that asks for more driving than anyone
+   actually does is marked, because a number you have to add up
+   yourself is a number nobody reads.
+   =========================================================== */
+const DAY_DRIVE_WARN = 6;        /* hours in a day before it looks wrong */
+const MPG = 26;
+
+async function wireTotals(host, id){
+  const strip = host.querySelector('#pgTotals');
+  if (!strip) return;
+  const t = tripGet(id); if (!t) return;
+  const pts = tripPoints(t);
+  if (pts.length < 2){ strip.hidden = true; return; }
+
+  /* one route for the whole trip, then per day out of its legs */
+  let route = (typeof liveRoute === 'function') ? await liveRoute(pts) : null;
+  if (!route) route = guessRoute(pts);
+
+  const gas = (typeof liveGas === 'function')
+    ? await liveGas(pts[0].abbr) : { usd: 3.15, guess: true };
+  const fuel = (route.miles / MPG) * gas.usd;
+
+  /* driving per day: a leg belongs to the day its destination is on */
+  const perDay = {};
+  pts.forEach((p, i) => {
+    if (!i) return;
+    const leg = route.legs[i - 1];
+    if (!leg) return;
+    perDay[p.day] = (perDay[p.day] || 0) + leg.hours;
+  });
+
+  let over = 0;
+  t.days.forEach(d => {
+    const hrs = perDay[d.id] || 0;
+    const el = host.querySelector('[data-dayload="' + d.id + '"]');
+    const col = host.querySelector('[data-day-col="' + d.id + '"]');
+    if (!el) return;
+    if (!hrs){ el.textContent = ''; if (col) col.classList.remove('is-over'); return; }
+    el.textContent = fmtDrive(hrs) + ' driving';
+    const bad = hrs > DAY_DRIVE_WARN;
+    el.classList.toggle('is-over', bad);
+    if (col) col.classList.toggle('is-over', bad);
+    if (bad) over++;
+  });
+
+  /* holidays inside the trip, which is the cheapest crowd warning
+     there is and the one people most often forget */
+  let holiday = '';
+  if (typeof holidaysBetween === 'function' && t.start && t.end){
+    const hs = await holidaysBetween(t.start, t.end);
+    if (hs && hs.length) holiday = hs.map(x => x.name).join(', ');
+  }
+
+  strip.innerHTML =
+      '<div class="pg-tot"><b>' + route.miles.toLocaleString() + '</b><span>miles'
+    +   (route.real ? '' : ' (estimated)') + '</span></div>'
+    + '<div class="pg-tot"><b>' + fmtDrive(route.hours) + '</b><span>behind the wheel</span></div>'
+    + '<div class="pg-tot"><b>$' + Math.round(fuel) + '</b><span>fuel at $'
+    +   gas.usd.toFixed(2) + '/gal' + (gas.guess ? ' (estimate)' : '') + '</span></div>'
+    + (over ? '<div class="pg-tot is-warn"><b>' + over + '</b><span>'
+        + (over === 1 ? 'day over ' : 'days over ') + DAY_DRIVE_WARN + 'h driving</span></div>' : '')
+    + (holiday ? '<div class="pg-tot is-note"><b>Holiday</b><span>' + plEsc(holiday)
+        + ' falls in this trip</span></div>' : '')
+    + '<p class="pg-tot-src">'
+    +   (route.real ? 'Road distances from OSRM' : 'Straight-line estimate — the router did not answer')
+    +   ' · ' + MPG + " mpg assumed</p>";
+  strip.hidden = false;
 }

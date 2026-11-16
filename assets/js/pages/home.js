@@ -90,7 +90,7 @@
 
     placePhoto(place).then(ph => {
       if (!ph || !ph.src) return;                   // gradient stands in
-      loadImage(ph.src, 1600, img => {
+      loadImage(ph.src, 1800, img => {
         slot.style.backgroundImage = 'url("' + img.src + '")';
         slot.classList.add('is-on');
         /* where it is, and nothing else: the file name and licence
@@ -169,7 +169,8 @@
        there is a key and whether anyone is signed in */
     return '<section class="wrap hm-sec" id="hmEvents"><div class="hm-h">'
       + '<span class="lab" id="hmEvLab">What is on</span>'
-      + '<p class="hm-sub" id="hmEvSub">Loading…</p></div>'
+      + '<p class="hm-sub" id="hmEvSub">Loading…</p>'
+      + '<button class="hm-near" id="hmNear">Use my location</button></div>'
       + '<div class="hm-ev" id="hmEvList"></div></section>';
   }
 
@@ -204,6 +205,28 @@
     const want = (typeof markedIds === 'function') ? markedIds('want') : [];
     const mine = (typeof signedIn === 'function' && signedIn()) && want.length;
 
+    /* Asked for on a press, never on load. Once it is granted, the
+       section switches to the two hundred miles around the reader
+       for the next week — which is the only version of "what is on"
+       anybody can act on this weekend. */
+    const nearBtn = host.querySelector('#hmNear');
+    if (nearBtn){
+      const already = (typeof hereCached === 'function') && hereCached();
+      if (already){ nearBtn.hidden = true; loadNearEvents(host, already); }
+      else nearBtn.onclick = async () => {
+        nearBtn.disabled = true; nearBtn.textContent = 'Asking…';
+        const here = (typeof askHere === 'function') ? await askHere() : null;
+        const spot = here || ((typeof hereRough === 'function') ? await hereRough() : null);
+        if (!spot){
+          nearBtn.disabled = false; nearBtn.textContent = 'Use my location';
+          sub.textContent = 'Could not work out where you are — the national list is below.';
+          return;
+        }
+        nearBtn.hidden = true;
+        loadNearEvents(host, spot);
+      };
+    }
+
     if (typeof eventsReady !== 'function' || !eventsReady()){
       lab.textContent = mine ? 'What is on where you want to go' : 'What is on around the country';
       sub.textContent = 'Live listings need a free Ticketmaster key in config.js.';
@@ -236,6 +259,54 @@
       + '</span></a>').join('');
   }
 
+  /* Everything within two hundred miles over the next seven days. */
+  async function loadNearEvents(host, here){
+    const lab = host.querySelector('#hmEvLab'),
+          sub = host.querySelector('#hmEvSub'),
+          box = host.querySelector('#hmEvList');
+    if (!box) return;
+    lab.textContent = 'Happening around you';
+    sub.textContent = 'Within 200 miles, over the next seven days'
+      + (here.city ? ' of ' + here.city : '') + '…';
+
+    /* Two sources, because they know about different things:
+       Ticketmaster has the arenas and the theatres, the park service
+       has the ranger walks and the night-sky programmes. Either one
+       alone is still worth showing. */
+    const jobs = [];
+    if (typeof liveEventsNear === 'function' && typeof eventsReady === 'function' && eventsReady())
+      jobs.push(liveEventsNear(here.lat, here.lon, 200, 7));
+    if (typeof liveParkEventsNear === 'function')
+      jobs.push(liveParkEventsNear(here.lat, here.lon, 200, 7));
+
+    if (!jobs.length){
+      sub.textContent = 'Live listings near you need a free Ticketmaster or '
+        + 'National Park Service key in config.js.';
+      return;
+    }
+    const got = await Promise.all(jobs);
+    const list = [].concat.apply([], got.map(x => x || []))
+      .sort((a, b) => String(a.when).localeCompare(String(b.when)));
+
+    if (!list.length){
+      sub.textContent = 'Nothing listed within 200 miles this week'
+        + ((typeof eventsReady === 'function' && eventsReady())
+            ? '.' : ' — and without a Ticketmaster key only park events are searched.');
+      box.innerHTML = '';
+      return;
+    }
+    sub.textContent = list.length + ' within 200 miles this week'
+      + (here.exact ? '' : ' (from your rough location)') + '.';
+    box.innerHTML = list.slice(0, 8).map(e =>
+      '<a class="hm-evc" href="' + plEsc(e.url) + '" target="_blank" rel="noopener">'
+      + '<span class="hm-evc-ph is-empty"></span>'
+      + '<span class="hm-evc-tx">'
+      +   '<i>' + plEsc(fmtDay(e.when)) + (e.miles !== null ? ' · ' + e.miles + ' mi' : '') + '</i>'
+      +   '<b>' + plEsc(e.name) + '</b>'
+      +   '<em>' + plEsc([e.venue, e.city].filter(Boolean).join(', ')) + '</em>'
+      + '</span></a>').join('');
+  }
+
   function homeIcon(kind){
     return '<svg class="hm-ic" viewBox="-12 -12 24 24" aria-hidden="true">' + placeIcon(kind, 16) + '</svg>';
   }
@@ -243,7 +314,7 @@
     if (!el || !place) return;
     placePhoto(place).then(p => {
       if (!p || !p.src){ el.classList.add('is-empty'); el.innerHTML = '<span class="hm-fall">' + homeIcon(place.kind) + '</span>'; return; }
-      loadImage(p.src, 560,
+      loadImage(p.src, 680,
         img => { el.style.backgroundImage = 'url("' + img.src + '")'; el.classList.add('is-on'); },
         () => { el.classList.add('is-empty'); el.innerHTML = '<span class="hm-fall">' + homeIcon(place.kind) + '</span>'; });
     });

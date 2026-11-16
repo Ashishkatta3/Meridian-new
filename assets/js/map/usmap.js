@@ -409,13 +409,27 @@ function wireUsMap(root, opts){
     }
     const z = e.target.closest('[data-umz]');
     if (z){
-      if (z.dataset.umz === 'reset'){ k = 1; tx = 0; ty = 0; clamp(); apply(); draw(); closeCard(); }
+      if (z.dataset.umz === 'reset'){
+        /* everything the map is currently doing, undone: the zoom,
+           the pan, the open card and the legend filter. Leaving the
+           filter on was why pressing Reset looked like nothing
+           happened. */
+        k = 1; tx = 0; ty = 0;
+        filter = '';
+        el.querySelectorAll('[data-umf]').forEach(x =>
+          x.classList.toggle('is-on', !x.dataset.umf));
+        clamp(); apply(); draw(); closeCard();
+        if (hint) hint.classList.remove('is-gone');
+      }
       else zoomAt(k * (z.dataset.umz === 'in' ? 1.6 : 1 / 1.6), W / 2, H / 2);
       return;
     }
     if (e.target.closest('[data-umclose]')) { closeCard(); return; }
-    if (card.contains(e.target)) return;              /* inside the card: leave it open */
 
+    /* The card's own buttons come first. They live inside the card,
+       so a "leave the card alone" guard above this point swallows
+       every one of them — which is exactly what stopped Been, Want
+       to go and Open from working. */
     const mk = e.target.closest('[data-ummk]');
     if (mk){
       const id = mk.dataset.pid, want = mk.dataset.ummk;
@@ -424,6 +438,9 @@ function wireUsMap(root, opts){
     }
     const op = e.target.closest('[data-umopen]');
     if (op && opts.onPick){ opts.onPick(op.dataset.umopen, UM_BY_ID[op.dataset.umopen]); return; }
+
+    /* anything else inside the card is not a click on the map */
+    if (card.contains(e.target)) return;
   });
 
   /* Closing has to be easy. The × answers to the press rather than

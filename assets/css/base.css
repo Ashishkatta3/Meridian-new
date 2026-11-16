@@ -5,6 +5,14 @@
 
 *, *::before, *::after{ box-sizing: border-box; }
 
+/* The browser hides [hidden] elements with display:none, but that rule
+   comes from the user-agent sheet, so ANY author rule that sets display
+   on the same element beats it. .um-card sets display:flex, which is
+   why setting card.hidden on the map card did nothing at all and the
+   card could not be closed. One rule makes `hidden` mean hidden
+   everywhere, whatever a component's own display happens to be. */
+[hidden]{ display: none !important; }
+
 html{ -webkit-text-size-adjust: 100%; }
 
 body{

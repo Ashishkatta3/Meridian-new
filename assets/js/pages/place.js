@@ -82,6 +82,12 @@ function renderPlace(id){
   if (info.voyp) links.push('<a href="' + plEsc(info.voyp) + '" target="_blank" rel="noopener">Wikivoyage</a>');
   if (links.length) h += '<p class="pl-src">More: ' + links.join(' · ') + '</p>';
 
+  /* ---- what is true today ----
+     Closures first: a road shut by fire matters before any of the
+     writing below it does. Filled in by wireLive(); the markup is a
+     placeholder so the page never jumps when it arrives. */
+  h += '<div id="plAlerts" class="pl-alerts" hidden></div>';
+
   /* ---- park facts ---- */
   if (info.nps) h += parkBlock(info.nps);
 
@@ -92,7 +98,7 @@ function renderPlace(id){
        + '<div class="pl-things">'
        + spots.map((s, i) => {
            const sid = spotId(id, i);
-           return '<article class="pl-thing">'
+           return '<article class="pl-thing" data-spot="' + sid + '" data-sname="' + plEsc(s[0]) + '">'
              + '<span class="pl-thing-ph" data-spotphoto="' + sid + '" data-kind="' + me.kind
              +   '" data-spotname="' + plEsc(s[0]) + '"></span>'
              + '<div class="pl-thing-b">'
@@ -147,8 +153,21 @@ function renderPlace(id){
   /* ===== the right rail: where this is, and what is around it ===== */
   const mini = (typeof miniMapHTML === 'function') ? miniMapHTML(id, near) : '';
   h += '<aside class="pl-right">';
+
+  /* A street map, not a national one: at city scale the Albers
+     drawing cannot tell you whether two of these are a walk apart.
+     The pins arrive as each thing to do is located. */
+  h += '<div class="pl-rbox pl-rbox-map">'
+     +   '<h3>On the ground</h3>'
+     +   '<div class="pl-street" id="plStreet"><div class="pl-street-wait">Loading the map…</div></div>'
+     +   '<p class="pl-maphint" id="plMapHint">Hover anything below and the map follows it.</p>'
+     + '</div>';
+
+  /* What is true right now — forecast, warnings, tide, the sky. */
+  h += '<div class="pl-rbox pl-live" id="plLive" hidden></div>';
+
   if (mini){
-    h += '<div class="pl-rbox"><h3>Where it is</h3>'
+    h += '<div class="pl-rbox pl-rbox-mini"><h3>Where it is in the country</h3>'
        + '<div class="pl-mini" id="plMini">' + mini + '</div></div>';
     h += '<div class="pl-rbox"><h3>Nearby</h3><ul class="pl-near-list">'
        + near.map(n => '<li><a href="#/place/' + n.id + '">' + iconFor(n.kind)
@@ -279,6 +298,12 @@ function mountPlace(host, id){
   heroPhoto(host.querySelector('[data-hero]'), me);
   resetSpotPhotos(me);
   host.querySelectorAll('[data-spotphoto]').forEach(paintSpotPhoto);
+
+  /* The live pieces run on their own and never hold the page up:
+     the street map and today's conditions arrive when they arrive. */
+  const spotsHere = (typeof SPOTS !== 'undefined' && SPOTS[id]) || [];
+  if (typeof wireStreetMap === 'function') wireStreetMap(host, me, spotsHere);
+  if (typeof wireLive === 'function') wireLive(host, me);
   tickTime(host, me.abbr);
   loadWeather(host, me);
   wireActions(host);
@@ -294,7 +319,7 @@ function heroPhoto(slot, place){
     /* The photographer's name used to sit on the photograph. It is in
        the footer now — a picture of a city should look like a picture
        of a city, not like a file listing. */
-    loadImage(p.src, 1200, img => {
+    loadImage(p.src, 1500, img => {
       slot.classList.remove('is-loading');
       slot.style.backgroundImage = 'url("' + img.src + '")';
       slot.title = [p.by, p.lic].filter(Boolean).join(' · ');
@@ -481,7 +506,7 @@ async function lookupSpotPhoto(name, place){
   const arts = await spotApi(
     'https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*'
     + '&generator=search&gsrlimit=6&gsrsearch=' + q
-    + '&prop=pageimages&piprop=thumbnail&pithumbsize=600');
+    + '&prop=pageimages&piprop=thumbnail&pithumbsize=900');
   (arts || []).forEach(p => {
     const src = p.thumbnail && p.thumbnail.source;
     if (src && titleFits(name, p.title || '', place)) cands.push(src);
@@ -491,7 +516,7 @@ async function lookupSpotPhoto(name, place){
     const files = await spotApi(
       'https://commons.wikimedia.org/w/api.php?action=query&format=json&origin=*'
       + '&generator=search&gsrnamespace=6&gsrlimit=10&gsrsearch=' + q
-      + '&prop=imageinfo&iiprop=url&iiurlwidth=600');
+      + '&prop=imageinfo&iiprop=url&iiurlwidth=900');
     (files || []).forEach(p => {
       const ii = p.imageinfo && p.imageinfo[0];
       if (!ii || !/\.(jpe?g|png|webp)$/i.test(ii.url || '')) return;
@@ -515,7 +540,7 @@ function spotFallback(el){
 function showSpotPhoto(el, url){
   if (!url) return spotFallback(el);
   SPOT_USED[photoKey(url)] = 1;
-  loadImage(url, 420, img => {
+  loadImage(url, 520, img => {
     el.innerHTML = ''; el.style.backgroundImage = 'url("' + img.src + '")';
     el.classList.remove('is-empty'); el.classList.add('is-on');
   }, () => spotFallback(el));
@@ -571,4 +596,184 @@ function wireMini(host){
   mini.addEventListener('keydown', e => {
     if (e.key === 'Enter' || e.key === ' '){ const g = e.target.closest('[data-pid]'); if (g){ e.preventDefault(); go(g.dataset.pid); } }
   });
+}
+
+/* ===========================================================
+   THE MAP AND THE LIST, WIRED TOGETHER
+
+   Until now the list of things to do and the map beside it were two
+   objects that happened to share a page. Hovering a row now moves
+   the map to that pin and lifts it; scrolling the list pans along
+   with you. Nothing about the data changed — only that the two know
+   about each other.
+   =========================================================== */
+let PL_MAP = null;
+
+async function wireStreetMap(host, me, spots){
+  const slot = host.querySelector('#plStreet');
+  const hint = host.querySelector('#plMapHint');
+  if (!slot) return;
+
+  if (PL_MAP){ PL_MAP.destroy(); PL_MAP = null; }
+  const tm = await tileMap(slot, {
+    lat: me.lat, lon: me.lon,
+    zoom: me.kind === 'city' ? 12 : 10,
+    single: me.kind === 'city' ? 15 : 12,
+    maxFit: me.kind === 'city' ? 15 : 12,
+    wheel: false,
+    onPick: sid => {
+      const row = host.querySelector('[data-spot="' + sid + '"]');
+      if (row) row.scrollIntoView({ behavior:'smooth', block:'center' });
+    }
+  });
+  if (!tm){
+    /* no tiles: say so plainly and leave the country map doing the work */
+    slot.innerHTML = '<p class="pl-street-wait">The street map could not load. '
+      + 'The map of where this sits in the country is below.</p>';
+    return;
+  }
+  PL_MAP = tm;
+
+  const pins = [{ id:'__here', lat: me.lat, lon: me.lon, name: me.name, n: undefined, kind:'place' }];
+  tm.set(pins).fit();
+
+  if (!spots || !spots.length){ if (hint) hint.textContent = ''; return; }
+
+  /* Locate the things to do, a few at a time, and drop each pin as
+     it lands rather than waiting for all of them. */
+  const wanted = spots.map((s, i) => ({ name: s[0], id: spotId(me.id, i), n: i + 1 }));
+  let found = 0;
+  if (hint) hint.textContent = 'Placing ' + wanted.length + ' things to do…';
+
+  await geoLocateAll(wanted, me, (item, pos) => {
+    pins.push({ id: item.id, lat: pos.lat, lon: pos.lon, name: item.name, n: item.n });
+    found++;
+    tm.set(pins).fit();
+    const row = host.querySelector('[data-spot="' + item.id + '"]');
+    if (row) row.classList.add('is-mapped');
+  }, 36);
+
+  if (hint){
+    hint.textContent = found
+      ? 'Hover anything below and the map follows it — ' + found + ' of '
+        + wanted.length + ' placed.'
+      : 'Hover anything below and the map follows it.';
+  }
+
+  /* hover a row, the map comes to it */
+  host.querySelectorAll('[data-spot]').forEach(row => {
+    const sid = row.dataset.spot;
+    row.addEventListener('pointerenter', () => { if (tm.has(sid)) tm.focus(sid); });
+    row.addEventListener('pointerleave', () => tm.blur());
+    row.addEventListener('click', e => {
+      if (e.target.closest('a,button')) return;
+      if (tm.has(sid)) tm.focus(sid, true);
+    });
+  });
+
+  /* and scrolling the list pans along with it */
+  if ('IntersectionObserver' in window){
+    const io = new IntersectionObserver(es => {
+      es.forEach(e => {
+        if (!e.isIntersecting) return;
+        const sid = e.target.dataset.spot;
+        if (tm.has(sid)) tm.focus(sid);
+      });
+    }, { rootMargin: '-45% 0px -45% 0px', threshold: 0 });
+    host.querySelectorAll('[data-spot]').forEach(r => io.observe(r));
+  }
+}
+
+/* ===========================================================
+   WHAT IS TRUE TODAY
+
+   The forecast, any warning on it, what the park service has shut,
+   tonight's tide and whether the sky is worth the drive. Each row
+   appears only if its source answers; a page with no live data
+   looks exactly as it did before.
+   =========================================================== */
+function liveRow(label, value, sub){
+  return '<div class="pl-lv"><span class="pl-lv-k">' + label + '</span>'
+    + '<span class="pl-lv-v">' + value + '</span>'
+    + (sub ? '<span class="pl-lv-s">' + sub + '</span>' : '') + '</div>';
+}
+
+async function wireLive(host, me){
+  const panel = host.querySelector('#plLive');
+  const top = host.querySelector('#plAlerts');
+  const rows = [];
+
+  /* --- closures first --- */
+  if (top && typeof liveParkAlerts === 'function' && me.kind === 'np'){
+    const park = await liveParkAlerts(me);
+    if (park && park.alerts && park.alerts.length){
+      const order = { danger:0, caution:1, closure:0, 'park closure':0 };
+      const list = park.alerts.slice().sort((a, b) =>
+        (order[a.kind] === undefined ? 2 : order[a.kind]) -
+        (order[b.kind] === undefined ? 2 : order[b.kind])).slice(0, 5);
+      top.innerHTML = '<h3>From the park, today</h3>'
+        + list.map(a => '<div class="pl-al pl-al-' + plEsc(a.kind.split(' ')[0]) + '">'
+            + '<b>' + plEsc(a.title) + '</b>'
+            + (a.body ? '<p>' + plEsc(a.body.slice(0, 340)) + '</p>' : '')
+            + (a.url ? '<a href="' + plEsc(a.url) + '" target="_blank" rel="noopener">Park service ↗</a>' : '')
+            + '</div>').join('')
+        + '<p class="pl-al-src">Live from the National Park Service.</p>';
+      top.hidden = false;
+    }
+  }
+
+  if (!panel || typeof liveWeather !== 'function') return;
+
+  /* --- weather, and anything the weather service is warning about --- */
+  const [wx, warn] = await Promise.all([liveWeather(me), liveWarnings(me)]);
+  if (warn && warn.length){
+    const worst = warn.slice().sort((a, b) => severityRank(b.severity) - severityRank(a.severity));
+    rows.push('<div class="pl-warn">' + worst.slice(0, 2).map(w =>
+      '<b>' + plEsc(w.event) + '</b>'
+      + (w.ends ? '<i>until ' + plEsc(fmtClock(w.ends) || fmtDay(w.ends)) + '</i>' : '')
+    ).join('') + '</div>');
+  }
+  if (wx && wx.now){
+    rows.push(liveRow(wx.now.name, wx.now.temp + '°' + wx.now.unit,
+      plEsc(wx.now.short) + (wx.now.wind ? ' · wind ' + plEsc(wx.now.wind) : '')));
+    const next = wx.days.filter(d => d.name !== wx.now.name).slice(0, 3);
+    if (next.length){
+      rows.push('<div class="pl-fc">' + next.map(d =>
+        '<span><i>' + plEsc(d.name.replace(' Night', ' nt')) + '</i><b>' + d.temp + '°</b>'
+        + '<em>' + plEsc(d.short.split(' then ')[0]) + '</em></span>').join('') + '</div>');
+    }
+  }
+
+  /* --- the tide, for anywhere the sea reaches --- */
+  const tide = await liveTides(me);
+  if (tide && tide.events && tide.events.length){
+    const next = tide.events.filter(e => new Date(e.at.replace(' ', 'T')) > new Date()).slice(0, 2);
+    const show = next.length ? next : tide.events.slice(0, 2);
+    rows.push(liveRow('Tide', show.map(e =>
+      (e.high ? 'High ' : 'Low ') + fmtClock(e.at.replace(' ', 'T')) + ' (' + e.ft + 'ft)').join(' · '),
+      plEsc(tide.station) + ' · ' + tide.miles + ' mi'));
+  }
+
+  /* --- and the sky, which is half the reason to drive anywhere --- */
+  const sky = await liveSky(me);
+  if (sky){
+    if (sky.sunset) rows.push(liveRow('Sun', 'sets ' + fmtClock(sky.sunset),
+      sky.dark ? 'fully dark ' + fmtClock(sky.dark) : ''));
+    if (sky.score !== null && sky.score !== undefined){
+      const words = sky.score >= 8 ? 'excellent' : sky.score >= 6 ? 'good'
+                  : sky.score >= 4 ? 'patchy' : 'poor';
+      rows.push(liveRow('Stars tonight', sky.score + '/10 · ' + words,
+        sky.cloud + '% cloud · moon ' + sky.moonLit + '% lit'));
+    }
+  }
+  const aur = await liveAurora(me);
+  if (aur && aur.chance >= 5){
+    rows.push(liveRow('Aurora', aur.chance + '% chance overhead', 'NOAA space weather'));
+  }
+
+  if (!rows.length) return;
+  panel.innerHTML = '<h3>Right now</h3>' + rows.join('')
+    + '<p class="pl-live-src">Weather and warnings from the National Weather Service, '
+    + 'tides from NOAA, sky from Open-Meteo.</p>';
+  panel.hidden = false;
 }

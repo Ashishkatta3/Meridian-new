@@ -595,3 +595,241 @@
   .wrap{ width: calc(100% - 32px); }
   img, .st-chip, .pg-chip{ max-width: 100%; }
 }
+
+/* ===========================================================
+   STREET MAPS
+
+   Leaflet brings its own stylesheet; this is only what makes it
+   look like it belongs here — the pins, the hover state and the
+   frames the maps sit in.
+   =========================================================== */
+.tm{ background: var(--panel-2); }
+.tm .leaflet-container{ font-family: var(--sans); background: var(--panel-2); }
+.tm .leaflet-control-attribution{
+  background: color-mix(in srgb, var(--panel) 86%, transparent);
+  color: var(--faint); font-size: 10px;
+}
+.tm .leaflet-control-attribution a{ color: var(--muted); }
+
+.tm-pin{
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; background: var(--want); color: #07120F;
+  border: 2px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,.35);
+  font: 600 12px/1 var(--sans);
+  transition: transform .16s, background .16s;
+}
+/* The numeral is centred by flex, but a digit has no descender, so in
+   a line-box it sits visually high; nudge it down by the empty descent
+   so a "2" looks centred in the circle rather than floating above. */
+.tm-pin span{ pointer-events: none; display: block; line-height: 1;
+  transform: translateY(0.08em); }
+.tm-pin.is-on{ transform: scale(1.32); background: var(--gold, #E3AC56); z-index: 900; }
+.tm-pin.is-food{ background: #C97B4E; }
+.tm-pin.is-stay{ background: #9C8BD6; }
+/* scroll-to-zoom hint, shown until the map is clicked */
+.tm-hint{
+  position: absolute; right: 8px; bottom: 8px; z-index: 450;
+  pointer-events: none; font: 500 10px/1 var(--mono);
+  letter-spacing: .04em; text-transform: uppercase;
+  color: #fff; background: rgba(20,24,18,.62); border-radius: 100px;
+  padding: 6px 10px; backdrop-filter: blur(3px); transition: opacity .3s;
+}
+.tm-hint.gone{ opacity: 0; }
+.tm-tip{
+  background: var(--panel); color: var(--ink); border: 1px solid var(--rule);
+  border-radius: 7px; box-shadow: var(--shadow-lg); font: 600 12px/1.2 var(--sans);
+  padding: 6px 9px;
+}
+.tm-tip::before{ display: none; }
+
+
+/* A provider that refuses draws its refusal as a picture, so when
+   every one of them refuses the map says so in words instead. */
+.tm-none{
+  display: flex; align-items: center; justify-content: center;
+  height: 100%; margin: 0; padding: 20px 24px; text-align: center;
+  font: 400 13px/1.65 var(--sans); color: var(--muted);
+}
+.tm-none code{
+  font: 500 12px/1 var(--mono); color: var(--ink-2);
+  background: var(--panel-2); border-radius: 4px; padding: 2px 5px;
+}
+/* satellite imagery as a last resort reads too bright beside the
+   rest of the page */
+.tm-dark{ filter: saturate(.8) brightness(.92); }
+
+/* ---- on a place page ---- */
+.pl-rbox-map{ padding: 0 !important; overflow: hidden; }
+.pl-rbox-map h3{ padding: 14px 15px 0; }
+.pl-street{ height: 320px; margin-top: 10px; background: var(--panel-2); }
+.pl-street-wait{
+  display: flex; align-items: center; justify-content: center; height: 100%;
+  padding: 0 18px; text-align: center;
+  font: 500 12px/1.5 var(--mono); color: var(--faint);
+}
+.pl-maphint{ padding: 10px 15px 13px; margin: 0; font: 400 12px/1.5 var(--sans); color: var(--muted); }
+.pl-rbox-mini h3{ margin-bottom: 8px; }
+
+/* a thing to do that the map found */
+.pl-thing.is-mapped .pl-thing-n::after{
+  content: ''; display: inline-block; width: 5px; height: 5px; border-radius: 50%;
+  background: var(--want); margin-left: 7px; vertical-align: middle; opacity: .75;
+}
+.pl-thing{ transition: border-color .15s, transform .15s; }
+.pl-thing:hover{ border-color: var(--faint); }
+
+/* ===========================================================
+   WHAT IS TRUE TODAY
+   =========================================================== */
+.pl-alerts{
+  margin: 0 0 22px; padding: 16px 18px;
+  border: 1px solid var(--rule); border-left: 3px solid #C45B5B;
+  border-radius: var(--r-m); background: var(--panel);
+}
+.pl-alerts h3{
+  font: 500 10px/1 var(--mono); letter-spacing: .15em; text-transform: uppercase;
+  color: #C45B5B; margin-bottom: 13px;
+}
+.pl-al{ padding: 9px 0; border-top: 1px solid var(--rule-soft); }
+.pl-al:first-of-type{ border-top: 0; padding-top: 0; }
+.pl-al b{ display: block; font: 600 14.5px/1.35 var(--sans); color: var(--ink); }
+.pl-al p{ margin: 5px 0 0; font: 400 13.5px/1.6 var(--sans); color: var(--ink-2); }
+.pl-al a{ display: inline-block; margin-top: 6px; font: 500 12px/1 var(--sans); color: var(--want); }
+.pl-al-caution{ border-left-color: var(--gold); }
+.pl-al-src{ margin-top: 12px; font: 500 10px/1 var(--mono); letter-spacing: .08em;
+  text-transform: uppercase; color: var(--faint); }
+
+.pl-live h3{ margin-bottom: 11px; }
+.pl-lv{
+  display: grid; grid-template-columns: 76px 1fr; gap: 2px 12px;
+  padding: 9px 0; border-top: 1px solid var(--rule-soft);
+}
+.pl-lv:first-of-type{ border-top: 0; }
+.pl-lv-k{
+  font: 500 9.5px/1.5 var(--mono); letter-spacing: .12em; text-transform: uppercase;
+  color: var(--faint); padding-top: 2px;
+}
+.pl-lv-v{ font: 600 14px/1.35 var(--sans); color: var(--ink); }
+.pl-lv-s{ grid-column: 2; font: 400 12px/1.5 var(--sans); color: var(--muted); }
+.pl-warn{
+  display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline;
+  padding: 10px 12px; margin-bottom: 10px; border-radius: var(--r-s);
+  background: color-mix(in srgb, #C45B5B 14%, transparent);
+  border: 1px solid color-mix(in srgb, #C45B5B 40%, transparent);
+}
+.pl-warn b{ font: 600 13px/1.3 var(--sans); color: var(--ink); }
+.pl-warn i{ font: 400 11.5px/1 var(--sans); font-style: normal; color: var(--muted); }
+.pl-fc{ display: flex; gap: 6px; padding: 10px 0 2px; }
+.pl-fc span{
+  flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px;
+  padding: 9px 8px; border: 1px solid var(--rule-soft); border-radius: var(--r-s);
+  background: var(--panel-2);
+}
+.pl-fc i{ font: 500 9px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase;
+  color: var(--faint); font-style: normal; }
+.pl-fc b{ font: 600 15px/1 var(--sans); color: var(--ink); }
+.pl-fc em{ font: 400 10.5px/1.3 var(--sans); font-style: normal; color: var(--muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pl-live-src{ margin-top: 12px; font: 400 11px/1.5 var(--sans); color: var(--faint); }
+
+/* ===========================================================
+   THE PLANNER: BOARD, MAP AND WHAT IT COSTS
+   =========================================================== */
+.pg-totals{
+  display: flex; flex-wrap: wrap; gap: 10px 26px; align-items: flex-end;
+  margin: 18px 0 4px; padding: 15px 18px;
+  border: 1px solid var(--rule); border-radius: var(--r-m); background: var(--panel);
+}
+.pg-tot{ display: flex; flex-direction: column; gap: 3px; }
+.pg-tot b{ font: 600 21px/1 var(--sans); color: var(--ink); font-variant-numeric: tabular-nums; }
+.pg-tot span{ font: 500 9.5px/1.4 var(--mono); letter-spacing: .1em; text-transform: uppercase;
+  color: var(--faint); }
+.pg-tot.is-warn b{ color: #C45B5B; }
+.pg-tot.is-warn span{ color: #C45B5B; }
+.pg-tot.is-note b{ font-size: 13px; color: var(--gold, #E3AC56); }
+.pg-tot-src{ flex: 1 0 100%; margin: 4px 0 0; font: 400 11px/1.5 var(--sans); color: var(--faint); }
+
+.pg-split{ display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 18px; align-items: start; }
+.pg-board-wrap{ min-width: 0; overflow-x: auto; padding-bottom: 6px; }
+.pg-mapwrap{ position: sticky; top: 86px; }
+.pg-map{
+  height: 420px; border: 1px solid var(--rule); border-radius: var(--r-m);
+  overflow: hidden; background: var(--panel-2);
+}
+.pg-map-wait{
+  display: flex; align-items: center; justify-content: center; height: 100%;
+  padding: 0 20px; text-align: center; font: 500 12px/1.5 var(--mono); color: var(--faint);
+}
+.pg-map-note{ margin: 9px 2px 0; font: 400 12px/1.5 var(--sans); color: var(--muted); }
+
+.pg-col-load{
+  display: block; margin-top: 4px;
+  font: 500 9.5px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase;
+  color: var(--faint);
+}
+.pg-col-load.is-over{ color: #C45B5B; }
+/* a day that asks for too much driving should LOOK wrong */
+.pg-col.is-over{
+  border-color: color-mix(in srgb, #C45B5B 55%, var(--rule));
+  background: color-mix(in srgb, #C45B5B 7%, transparent);
+}
+.pg-stop{ cursor: default; }
+
+@media (max-width: 1080px){
+  .pg-split{ grid-template-columns: 1fr; }
+  .pg-mapwrap{ position: static; order: -1; }
+  .pg-map{ height: 300px; }
+}
+
+/* ===========================================================
+   SEARCH: WHERE IS THAT, WHILE YOU TYPE
+   =========================================================== */
+.navsearch-out{ display: block; }
+.navsearch-rows{ display: block; }
+.navsearch-inset{
+  position: relative; display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; border-top: 1px solid var(--rule); background: var(--panel-2);
+}
+.navsearch-map{ width: 128px; height: 80px; flex: 0 0 auto; }
+.navsearch-map .nm-land path{ fill: var(--rule-soft); stroke: var(--rule); stroke-width: 1.2; }
+.navsearch-map .nm-dot{ fill: var(--want); transition: cx .28s ease, cy .28s ease; }
+.navsearch-map .nm-ring{
+  fill: none; stroke: var(--want); stroke-width: 3; opacity: .45;
+  transition: cx .28s ease, cy .28s ease;
+  animation: nmPulse 1.8s ease-out infinite;
+}
+@keyframes nmPulse{ 0%{ r: 11; opacity:.5 } 70%{ r: 30; opacity:0 } 100%{ opacity:0 } }
+@media (prefers-reduced-motion: reduce){ .navsearch-map .nm-ring{ animation: none; } }
+.navsearch-where{ font: 500 11px/1.4 var(--mono); color: var(--muted); min-width: 0; }
+
+/* ===========================================================
+   FILTERS THAT COMBINE
+   =========================================================== */
+.tr-chip[aria-pressed="true"]{ position: relative; }
+.tr-chip[aria-pressed="true"]::after{
+  content: '×'; margin-left: 7px; opacity: .55; font-weight: 400;
+}
+.tr-clear{
+  appearance: none; cursor: pointer; align-self: flex-end;
+  background: transparent; border: 1px dashed var(--rule); border-radius: 100px;
+  color: var(--muted); font: 500 11.5px/1 var(--sans); padding: 9px 14px; transition: all .14s;
+}
+.tr-clear:hover{ border-style: solid; border-color: var(--gold, #E3AC56); color: var(--ink); }
+
+/* location, asked for rather than taken */
+.hm-near{
+  appearance: none; cursor: pointer; margin-left: auto;
+  background: transparent; border: 1px solid var(--rule); border-radius: 100px;
+  color: var(--ink-2); font: 500 12px/1 var(--sans); padding: 10px 15px; transition: all .14s;
+}
+.hm-near:hover{ border-color: var(--want); color: var(--want); }
+.hm-near:disabled{ opacity: .55; cursor: default; }
+
+@media (max-width: 620px){
+  .pl-street{ height: 260px; }
+  .pg-map{ height: 260px; }
+  .pg-totals{ gap: 12px 20px; padding: 13px 15px; }
+  .pg-tot b{ font-size: 18px; }
+  .navsearch-map{ width: 96px; height: 60px; }
+  .hm-near{ margin-left: 0; }
+}
