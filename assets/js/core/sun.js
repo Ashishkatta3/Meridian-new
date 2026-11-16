@@ -49,9 +49,18 @@ function sunTimes(date, lat, lon){
 }
 
 /* Is it daylight where this browser is, right now? */
+/* The reader's own coordinates once they have shared them. Sunset at
+   latitude 38 is not sunset in Seattle — it can be over an hour out —
+   and the time zone only fixes longitude to the nearest 15°. */
+function sunWhere(){
+  const h = (typeof hereCached === 'function') ? hereCached() : null;
+  return h ? { lat: h.lat, lon: h.lon } : { lat: SUN_DEFAULT_LAT, lon: sunLongitude() };
+}
+
 function isDaylight(when){
   const now = when || new Date();
-  const t = sunTimes(now, SUN_DEFAULT_LAT, sunLongitude());
+  const w = sunWhere();
+  const t = sunTimes(now, w.lat, w.lon);
   if (t.alwaysUp) return true;
   if (t.alwaysDown) return false;
   return now >= t.sunrise && now < t.sunset;
@@ -60,11 +69,12 @@ function isDaylight(when){
 /* how long until the next switch, so the page can flip by itself */
 function msUntilSunChange(){
   const now = new Date();
-  const t = sunTimes(now, SUN_DEFAULT_LAT, sunLongitude());
+  const w = sunWhere();
+  const t = sunTimes(now, w.lat, w.lon);
   if (t.alwaysUp || t.alwaysDown) return 6 * 3600000;
   let next = now < t.sunrise ? t.sunrise : now < t.sunset ? t.sunset : null;
   if (!next){                                        /* after today's sunset */
-    const tm = sunTimes(new Date(now.getTime() + 86400000), SUN_DEFAULT_LAT, sunLongitude());
+    const tm = sunTimes(new Date(now.getTime() + 86400000), w.lat, w.lon);
     next = tm.sunrise || new Date(now.getTime() + 6 * 3600000);
   }
   return Math.max(60000, Math.min(next - now + 1000, 6 * 3600000));

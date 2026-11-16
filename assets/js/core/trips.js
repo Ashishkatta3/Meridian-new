@@ -51,16 +51,32 @@ function tripId(){
 function tripsAll(){ return TRIPS.slice().sort((a, b) => (b.updated || 0) - (a.updated || 0)); }
 function tripGet(id){ return TRIPS.find(t => t.id === id) || null; }
 
+/* Two trips called "Colorado" are impossible to tell apart in the
+   picker, the share dialog and the trip list, so a repeat gets a
+   number rather than being refused outright. */
+function tripUniqueName(want, exceptId){
+  let base = (want || 'Untitled trip').trim() || 'Untitled trip';
+  const taken = n => TRIPS.some(t => t.id !== exceptId && t.name.toLowerCase() === n.toLowerCase());
+  if (!taken(base)) return base;
+  let n = 2;
+  while (taken(base + ' ' + n)) n++;
+  return base + ' ' + n;
+}
+
 function tripCreate(name){
   /* The first day gets a unique id like every other day. It used to be
      the literal 'd1' in every trip, so two trips shared a day id — a
      collision waiting to put a stop under the wrong trip's day. */
-  const t = { id: tripId(), name: name || 'Untitled trip', created: Date.now(), updated: Date.now(),
+  const t = { id: tripId(), name: tripUniqueName(name || 'Untitled trip'), created: Date.now(), updated: Date.now(),
               days: [{ id: 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
                        label: 'Day 1', stops: [] }], ideas: [], notes: {} };
   TRIPS.push(t); tripsSave(); return t;
 }
-function tripRename(id, name){ const t = tripGet(id); if (t){ t.name = name || t.name; t.updated = Date.now(); tripsSave(); } }
+function tripRename(id, name){
+  const t = tripGet(id); if (!t) return;
+  t.name = tripUniqueName(name || t.name, id);
+  t.updated = Date.now(); tripsSave();
+}
 function tripDelete(id){ const i = TRIPS.findIndex(t => t.id === id); if (i !== -1){ TRIPS.splice(i, 1); tripsSave(); } }
 
 /* ---- stops ---- */
@@ -69,9 +85,21 @@ function tripHasPlace(t, pid){
   if (t.ideas.indexOf(pid) !== -1) return true;
   return t.days.some(d => d.stops.indexOf(pid) !== -1);
 }
-function tripAddPlace(id, pid){
-  const t = tripGet(id); if (!t || tripHasPlace(t, pid)) return;
-  t.ideas.push(pid); t.updated = Date.now(); tripsSave();
+/* A place can legitimately appear twice: you drive back through it,
+   or you stay two nights. Repeats get an instance suffix (@2, @3) so
+   each card is its own stop with its own note and position, while
+   stopInfo still resolves it to the same place. */
+function tripStopInstance(t, pid){
+  if (!tripHasPlace(t, pid)) return pid;
+  let n = 2;
+  while (tripHasPlace(t, pid + '@' + n)) n++;
+  return pid + '@' + n;
+}
+function tripAddPlace(id, pid, allowRepeat){
+  const t = tripGet(id); if (!t) return;
+  if (tripHasPlace(t, pid) && !allowRepeat) return;
+  t.ideas.push(allowRepeat ? tripStopInstance(t, pid) : pid);
+  t.updated = Date.now(); tripsSave();
 }
 function tripRemovePlace(id, pid){
   const t = tripGet(id); if (!t) return;

@@ -28,7 +28,9 @@ function rowToTrip(r){
   const d = r.data || {};
   return { id: r.id, name: r.name, created: Date.parse(r.created_at) || Date.now(),
            updated: Date.parse(r.updated_at) || Date.now(),
-           days: d.days || [{ id: 'd1', label: 'Day 1', stops: [] }],
+           days: (d.days && d.days.length) ? d.days
+                 : [{ id: 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2,6),
+                      label: 'Day 1', stops: [] }],
            ideas: d.ideas || [], notes: d.notes || {},
            owner: r.owner, shared: true };
 }

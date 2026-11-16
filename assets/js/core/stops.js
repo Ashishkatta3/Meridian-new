@@ -38,8 +38,19 @@ function customData(sid){
 function spotId(placeId, index){ return placeId + '#' + index; }
 
 /* { kind, id, name, sub, lat, lon, photoId, href } or null */
+/* "CA-san-francisco@2" is the same place, visited again. */
+function stopBase(sid){
+  const i = String(sid || '').indexOf('@');
+  return i === -1 ? sid : sid.slice(0, i);
+}
+
 function stopInfo(sid){
   if (!sid) return null;
+  const inst = String(sid).indexOf('@') !== -1;
+  if (inst){
+    const info = stopInfo(stopBase(sid));
+    return info ? Object.assign({}, info, { id: sid, repeat: true }) : null;
+  }
 
   if (stopIsCustom(sid)){
     const d = customData(sid);
