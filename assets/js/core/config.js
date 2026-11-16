@@ -52,7 +52,7 @@ const NPS_KEY = 'CqcGc9nNMFdhHgpKQt7B8MqpP8WpNPCHTzcqMgtW';
 const EIA_KEY = 'CCkd9t7MwGDhpthpFHJMTpwnLFDQphHcCChP6MQM';
 
 /* Used for fuel cost when EIA_KEY is empty. Dollars per gallon. */
-const GAS_FALLBACK = N/A;   /* a number, not text — it is multiplied */
+const GAS_FALLBACK = 3.15;   /* a number, not text — it is multiplied */
 
 /* Recreation.gov — campgrounds and timed-entry permits.
    Free: https://ridb.recreation.gov/.  Note that this one may refuse
