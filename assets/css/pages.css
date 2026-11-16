@@ -618,14 +618,39 @@
   font: 600 12px/1 var(--sans);
   transition: transform .16s, background .16s;
 }
-/* The numeral is centred by flex, but a digit has no descender, so in
-   a line-box it sits visually high; nudge it down by the empty descent
-   so a "2" looks centred in the circle rather than floating above. */
-.tm-pin span{ pointer-events: none; display: block; line-height: 1;
-  transform: translateY(0.08em); }
+/* The number is SVG text centred on the font's own central axis, which
+   is the only way that holds across typefaces — centring an HTML line
+   box leaves a digit sitting high, because it has no descender. */
+.tm-pin svg{ width: 100%; height: 100%; display: block; overflow: visible; }
+.tm-pin text{
+  fill: currentColor; font-family: var(--sans); font-size: 13px; font-weight: 600;
+  text-anchor: middle; dominant-baseline: central;
+}
+/* an idea is not a stop: pale, small, off the route */
+.tm-pin.is-idea{
+  background: var(--panel); border: 2px dashed var(--faint); opacity: .85;
+  box-shadow: none;
+}
 .tm-pin.is-on{ transform: scale(1.32); background: var(--gold, #E3AC56); z-index: 900; }
 .tm-pin.is-food{ background: #C97B4E; }
 .tm-pin.is-stay{ background: #9C8BD6; }
+
+/* where the reader is: a pulsing dot, never a pin */
+.tm-me{ position: relative; }
+.tm-me i, .tm-me b{
+  position: absolute; left: 50%; top: 50%; border-radius: 50%;
+  transform: translate(-50%, -50%);
+}
+.tm-me i{ width: 12px; height: 12px; background: #2F7FD6;
+  border: 2px solid #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.25); z-index: 2; }
+.tm-me b{ width: 12px; height: 12px; background: rgba(47,127,214,.45);
+  animation: tmPulse 2s ease-out infinite; }
+@keyframes tmPulse{
+  0%{ width:12px; height:12px; opacity:.6 }
+  70%{ width:46px; height:46px; opacity:0 }
+  100%{ width:46px; height:46px; opacity:0 }
+}
+@media (prefers-reduced-motion: reduce){ .tm-me b{ animation: none; opacity:.3; } }
 /* scroll-to-zoom hint, shown until the map is clicked */
 .tm-hint{
   position: absolute; right: 8px; bottom: 8px; z-index: 450;
@@ -751,6 +776,7 @@
 
 .pg-split{ display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 18px; align-items: start; }
 .pg-board-wrap{ min-width: 0; overflow-x: auto; padding-bottom: 6px; }
+.pg-board-top{ display: flex; margin-bottom: 10px; }
 .pg-mapwrap{ position: sticky; top: 86px; }
 .pg-map{
   height: 420px; border: 1px solid var(--rule); border-radius: var(--r-m);
@@ -832,4 +858,65 @@
   .pg-tot b{ font-size: 18px; }
   .navsearch-map{ width: 96px; height: 60px; }
   .hm-near{ margin-left: 0; }
+}
+
+/* ===========================================================
+   THE ACCOUNT PAGE — your travels
+
+   Opens with what you have seen, then the fastest way to fill the
+   map in. A chip cycles been → want → clear, and the colour says
+   which, so one control does the work of two.
+   =========================================================== */
+.ac-sum{ margin: 26px 0 8px; }
+.ac-stats{ display: flex; flex-wrap: wrap; gap: 10px 34px; }
+.ac-stat{ display: flex; flex-direction: column; gap: 3px; }
+.ac-stat b{ font: 600 26px/1 var(--sans); color: var(--ink); font-variant-numeric: tabular-nums; }
+.ac-stat span{ font: 500 9.5px/1.4 var(--mono); letter-spacing: .12em;
+  text-transform: uppercase; color: var(--faint); }
+.ac-bar{ height: 7px; border-radius: 100px; background: var(--panel-2);
+  border: 1px solid var(--rule); margin-top: 20px; overflow: hidden; }
+.ac-bar span{ display: block; height: 100%; background: var(--want);
+  transition: width .5s cubic-bezier(.2,.7,.3,1); }
+.ac-barlab{ margin: 8px 0 0; font: 500 11px/1 var(--mono); color: var(--muted); }
+.ac-span{ margin: 10px 0 0; font-size: 14px; line-height: 1.6; color: var(--ink-2); }
+.ac-span b{ font-weight: 600; color: var(--ink); }
+
+.ac-legend{ display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center;
+  margin: 30px 0 14px; padding-top: 20px; border-top: 1px solid var(--rule-soft); }
+.ac-key{ font: 500 10px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase;
+  color: var(--faint); display: inline-flex; align-items: center; gap: 6px; }
+.ac-key.is-been::before, .ac-key.is-want::before{
+  content: ''; width: 9px; height: 9px; border-radius: 50%; }
+.ac-key.is-been::before{ background: var(--been, #C97B4E); }
+.ac-key.is-want::before{ background: var(--want); }
+
+.ac-pick{ margin-bottom: 26px; }
+.ac-pick-h{ display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.ac-pick-h h2{ margin: 0; font: 400 21px/1.2 var(--serif, Georgia, serif); color: var(--ink); }
+.ac-pick-h p{ margin: 0; font-size: 13px; color: var(--muted); }
+.ac-chips{ display: flex; flex-wrap: wrap; gap: 7px; }
+.ac-chip{
+  appearance: none; cursor: pointer; display: inline-flex; align-items: baseline; gap: 7px;
+  background: var(--panel); border: 1px solid var(--rule); border-radius: 100px;
+  color: var(--ink-2); font: 500 13px/1 var(--sans); padding: 9px 14px;
+  transition: all .14s; touch-action: manipulation;
+}
+.ac-chip i{ font: 500 9.5px/1 var(--mono); font-style: normal; color: var(--faint); }
+.ac-chip:hover{ border-color: var(--faint); color: var(--ink); }
+.ac-chip.is-been{ background: var(--been, #C97B4E); border-color: var(--been, #C97B4E); color: #fff; }
+.ac-chip.is-been i{ color: rgba(255,255,255,.72); }
+.ac-chip.is-want{ background: transparent; border-color: var(--want); color: var(--want); }
+.ac-chip.is-want i{ color: var(--want); opacity: .7; }
+.ac-more{
+  appearance: none; cursor: pointer; margin-top: 12px;
+  background: transparent; border: 1px dashed var(--rule); border-radius: 100px;
+  color: var(--muted); font: 500 12px/1 var(--sans); padding: 10px 16px; transition: all .14s;
+}
+.ac-more:hover{ border-style: solid; border-color: var(--want); color: var(--ink); }
+.ac-form-name{ margin-top: 30px; padding-top: 24px; border-top: 1px solid var(--rule-soft); }
+
+@media (max-width: 620px){
+  .ac-stats{ gap: 10px 22px; }
+  .ac-stat b{ font-size: 21px; }
+  .ac-chip{ padding: 9px 12px; font-size: 12.5px; }
 }

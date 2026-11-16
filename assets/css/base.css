@@ -39,11 +39,21 @@ svg{ display: block; }
 }
 
 /* ---------- top bar ---------- */
+/* Translucent rather than a solid band: at 92% opacity this read as a
+   thick white block sitting on top of the photographs. The blur plus a
+   little saturation keeps the text legible over any image underneath,
+   which is what lets the tint go this far down. */
 .top{
   position: sticky; top: 0; z-index: 40;
-  background: color-mix(in srgb, var(--ground) 92%, transparent);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid var(--rule);
+  background: color-mix(in srgb, var(--ground) 55%, transparent);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border-bottom: 1px solid color-mix(in srgb, var(--rule) 55%, transparent);
+}
+/* A browser without backdrop-filter gets a solid bar instead of
+   unreadable text over a photograph. */
+@supports not (backdrop-filter: blur(2px)){
+  .top{ background: color-mix(in srgb, var(--ground) 94%, transparent); }
 }
 .top-in{ display: flex; align-items: center; gap: 16px; padding: 14px 0; }
 

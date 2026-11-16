@@ -257,3 +257,18 @@
   .um-cb button{ flex: 1; text-align: center; }
   .um-hint{ bottom: 10px; font-size: 10px; padding: 6px 11px; }
 }
+
+/* ---------- where the reader is ----------
+   A pulsing dot rather than a pin: it marks where you happen to be,
+   not somewhere you chose. */
+.um-me-dot{ fill: #2F7FD6; stroke: #fff; stroke-width: 1.6; }
+.um-me-pulse{
+  fill: rgba(47,127,214,.45); transform-origin: center;
+  animation: umMe 2.2s ease-out infinite;
+}
+@keyframes umMe{
+  0%{ r: 4; opacity: .65 }
+  70%{ r: 18; opacity: 0 }
+  100%{ r: 18; opacity: 0 }
+}
+@media (prefers-reduced-motion: reduce){ .um-me-pulse{ animation: none; opacity: .25; } }
