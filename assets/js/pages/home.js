@@ -289,10 +289,12 @@
       .sort((a, b) => String(a.when).localeCompare(String(b.when)));
 
     if (!list.length){
-      sub.textContent = 'Nothing listed within 200 miles this week'
-        + ((typeof eventsReady === 'function' && eventsReady())
-            ? '.' : ' — and without a Ticketmaster key only park events are searched.');
-      box.innerHTML = '';
+      /* No ticketed listings and no ranger walks. Rather than an empty
+         shelf, answer the question the section is really asking —
+         what is worth driving to from here — out of the atlas itself,
+         which needs no key and is never empty. */
+      sub.textContent = 'No listings nearby this week. The closest places in the atlas instead:';
+      box.innerHTML = nearbyPlacesHTML(here, 8);
       return;
     }
     sub.textContent = list.length + ' within 200 miles this week'
@@ -304,6 +306,27 @@
       +   '<i>' + plEsc(fmtDay(e.when)) + (e.miles !== null ? ' · ' + e.miles + ' mi' : '') + '</i>'
       +   '<b>' + plEsc(e.name) + '</b>'
       +   '<em>' + plEsc([e.venue, e.city].filter(Boolean).join(', ')) + '</em>'
+      + '</span></a>').join('');
+  }
+
+  /* The nearest places in the atlas, with how far they are. The
+     fallback for "what is on around me" when nothing is listed — and
+     the only version of this that works with no API key at all. */
+  function nearbyPlacesHTML(here, n){
+    const rows = [];
+    Object.keys(PLACES).forEach(id => {
+      const p = placeGet(id);
+      if (!p || typeof p.lat !== 'number') return;
+      rows.push({ p: p, mi: Math.round(haversine(here.lat, here.lon, p.lat, p.lon)) });
+    });
+    rows.sort((a, b) => a.mi - b.mi);
+    return rows.slice(0, n || 8).map(r =>
+      '<a class="hm-evc" href="#/place/' + plEsc(r.p.id) + '">'
+      + '<span class="hm-evc-ph" data-photo="' + plEsc(r.p.id) + '"></span>'
+      + '<span class="hm-evc-tx">'
+      +   '<i>' + r.mi + ' mi away</i>'
+      +   '<b>' + plEsc(r.p.name) + '</b>'
+      +   '<em>' + plEsc(stateName(r.p.abbr)) + '</em>'
       + '</span></a>').join('');
   }
 

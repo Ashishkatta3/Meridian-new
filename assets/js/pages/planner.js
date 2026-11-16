@@ -52,7 +52,6 @@ function renderTrip(id){
     +     '<h1 class="pg-name" id="tripName" contenteditable="true" spellcheck="false">' + plEsc(t.name) + '</h1>'
     +     '<p class="pg-sub">' + total + (total === 1 ? ' place' : ' places') + ' across ' + t.days.length + (t.days.length === 1 ? ' day' : ' days') + ' · drag a stop to reorder or move it between days</p></div>'
     +   '<div class="pg-acts">'
-    +     '<button class="pg-btn" id="addDay">+ Add day</button>'
     +     '<button class="pg-btn" id="shareTrip">Share</button>'
     +     '<button class="pg-btn" id="expTxt">Export</button>'
     +   '</div>'
@@ -82,7 +81,9 @@ function renderTrip(id){
      names tells you the order but never the shape of the drive. The
      pins are numbered in visiting order and redraw on every change. */
   h += '<div id="pgBoard" class="pg-split">'
-     +   '<div class="pg-board-wrap"><div class="pg-board">';
+     +   '<div class="pg-board-wrap">'
+     +     '<div class="pg-board-top"><button class="pg-btn pg-btn-s" id="addDay">+ Add day</button></div>'
+     +     '<div class="pg-board">';
   t.days.forEach(d => { h += dayColumn(t, d); });
   h += ideasColumn(t);
   h += '</div></div>'
@@ -121,6 +122,19 @@ function legHTML(fromParent, toParent){
   return '<span class="pg-leg">' + fmtDrive(driveHours(mi)) + ' from ' + plEsc(a.name) + '</span>';
 }
 
+/* The parent place the previous day ended on, or null if this is the
+   first day with anything in it. */
+function lastStopBefore(t, dayId){
+  let last = null;
+  for (const d of t.days){
+    if (d.id === dayId) break;
+    if (!d.stops.length) continue;
+    const info = stopInfo(d.stops[d.stops.length - 1]);
+    if (info) last = info.kind === 'spot' ? info.parent : d.stops[d.stops.length - 1];
+  }
+  return last;
+}
+
 function dayColumn(t, d){
   let h = '<div class="pg-col" data-list="' + d.id + '" data-day-col="' + d.id + '">'
         + '<div class="pg-col-h"><span class="pg-col-t" contenteditable="true" data-day="' + d.id + '" spellcheck="false">' + plEsc(d.label) + '</span>'
@@ -128,7 +142,10 @@ function dayColumn(t, d){
         + '<span class="pg-col-load" data-dayload="' + d.id + '"></span>'
         + '</div><div class="pg-drop" data-list="' + d.id + '">';
   if (!d.stops.length) h += '<p class="pg-blank">Drag a place here</p>';
-  h += renderGroups(t, d.stops, d.id);
+  /* The drive from where the last day finished: that leg is real
+     driving and belongs to this day, so it is shown here rather than
+     vanishing in the gap between two columns. */
+  h += renderGroups(t, d.stops, d.id, lastStopBefore(t, d.id));
   return h + '</div></div>';
 }
 
@@ -141,9 +158,9 @@ function ideasColumn(t){
   return h + '</div></div>';
 }
 
-function renderGroups(t, stops, listId){
+function renderGroups(t, stops, listId, fromParent){
   const groups = groupStops(stops);
-  let h = '', prev = null;
+  let h = '', prev = fromParent || null;
   groups.forEach(g => {
     const leg = legHTML(prev, g.parent);
     if (g.place){
@@ -351,6 +368,7 @@ function addFromRow(t){
 
 /* ---------- mount ---------- */
 function mountPlanner(host, tripIdOrNull){
+  PG_MOUNT++;                       /* anything still in flight is stale */
   const repaint = () => mountPlanner(host, tripIdOrNull);
   /* the board is rebuilt wholesale on every change, so a map left
      over from the last paint is pointing at a node that is gone */
@@ -403,8 +421,9 @@ function mountPlanner(host, tripIdOrNull){
 
   /* The map and the totals are rebuilt on every repaint, which is
      every time a stop moves — that is the whole point of them. */
-  if (typeof wirePlannerMap === 'function') wirePlannerMap(host, id, repaint);
-  if (typeof wireTotals === 'function') wireTotals(host, id);
+  const mount = PG_MOUNT;
+  if (typeof wirePlannerMap === 'function') wirePlannerMap(host, id, repaint, mount);
+  if (typeof wireTotals === 'function') wireTotals(host, id, mount);
 
   on('#addDay', () => { tripAddDay(id); repaint(); });
   on('#shareTrip', () => openShare(id));
@@ -781,6 +800,9 @@ function openShare(id){
 let PG_MAP = null;
 
 /* Every stop on the trip, in order, as a point on the ground. */
+/* The route is what you are actually driving, which is what is on a
+   day. Ideas are a shortlist, not an itinerary: counting them was why
+   the totals showed hours of driving before anything was scheduled. */
 function tripPoints(t){
   const out = [], seen = {};
   const add = (sid, dayId) => {
@@ -793,18 +815,33 @@ function tripPoints(t){
                name: p.name || info.name, abbr: p.abbr || '' });
   };
   t.days.forEach(d => d.stops.forEach(sid => add(sid, d.id)));
-  /* Ideas come last and belong to no day, so they still appear on the
-     map and in the totals without making any day look overloaded. */
-  t.ideas.forEach(sid => add(sid, 'ideas'));
   return out;
 }
 
-async function wirePlannerMap(host, id, repaint){
+/* Ideas, for the map only — shown, but unnumbered and off the route. */
+function tripIdeaPoints(t){
+  const out = [], seen = {};
+  t.days.forEach(d => d.stops.forEach(sid => {
+    const i = stopInfo(sid); if (i) seen[i.kind === 'spot' ? i.parent : sid] = 1;
+  }));
+  t.ideas.forEach(sid => {
+    const info = stopInfo(sid); if (!info) return;
+    const key = info.kind === 'spot' ? info.parent : sid;
+    if (seen[key]) return; seen[key] = 1;
+    const p = placeGet(key);
+    if (!p || typeof p.lat !== 'number') return;
+    out.push({ id: key, lat: p.lat, lon: p.lon, name: p.name });
+  });
+  return out;
+}
+
+async function wirePlannerMap(host, id, repaint, mount){
   const slot = host.querySelector('#pgMap');
   const note = host.querySelector('#pgMapNote');
   if (!slot) return;
   const t = tripGet(id); if (!t) return;
   const pts = tripPoints(t);
+  const ideas = tripIdeaPoints(t);
 
   if (!PG_MAP){
     PG_MAP = await tileMap(slot, {
@@ -820,13 +857,21 @@ async function wirePlannerMap(host, id, repaint){
       return;
     }
   }
+  if (mount !== undefined && mount !== PG_MOUNT) return;
 
   const items = pts.map((p, i) => ({ id: p.id, lat: p.lat, lon: p.lon, name: p.name, n: i + 1 }));
-  PG_MAP.set(items).route(items).fit().resize();
+  /* Ideas appear, but pale and unnumbered: they are not on the route
+     and should not look like a stop you have committed to. */
+  const idea = ideas.map(p => ({ id: 'idea:' + p.id, lat: p.lat, lon: p.lon,
+                                 name: p.name + ' — idea', kind: 'idea' }));
+  PG_MAP.set(items.concat(idea)).route(items).fit().resize();
   if (note){
     note.textContent = items.length
-      ? items.length + ' stops, numbered in visiting order. Hover one and the map goes to it.'
-      : 'Add a stop and it appears here.';
+      ? items.length + ' stop' + (items.length === 1 ? '' : 's') + ' on days, numbered in visiting order'
+        + (idea.length ? ', plus ' + idea.length + ' idea' + (idea.length === 1 ? '' : 's') : '')
+        + '. Hover one and the map goes to it.'
+      : (idea.length ? 'Ideas only so far — put one on a day and the route appears.'
+                     : 'Add a stop and it appears here.');
   }
 
   /* hovering a card moves the map; the two are one thing now */
@@ -849,21 +894,31 @@ async function wirePlannerMap(host, id, repaint){
    yourself is a number nobody reads.
    =========================================================== */
 const DAY_DRIVE_WARN = 6;        /* hours in a day before it looks wrong */
-const MPG = 26;
+const MPG = 30;
 
-async function wireTotals(host, id){
+/* Which mount of the planner is current. Every async write checks it
+   before touching the DOM: a route or a fuel price that arrives after
+   you have moved to another trip belongs to the trip you left, and
+   writing it into the one on screen is how a two-hour day ended up
+   claiming fifteen. */
+let PG_MOUNT = 0;
+
+async function wireTotals(host, id, mount){
   const strip = host.querySelector('#pgTotals');
   if (!strip) return;
   const t = tripGet(id); if (!t) return;
   const pts = tripPoints(t);
   if (pts.length < 2){ strip.hidden = true; return; }
+  const mine = () => mount === PG_MOUNT && host.isConnected;
 
   /* one route for the whole trip, then per day out of its legs */
   let route = (typeof liveRoute === 'function') ? await liveRoute(pts) : null;
   if (!route) route = guessRoute(pts);
+  if (!mine()) return;
 
   const gas = (typeof liveGas === 'function')
     ? await liveGas(pts[0].abbr) : { usd: 3.15, guess: true };
+  if (!mine()) return;
   const fuel = (route.miles / MPG) * gas.usd;
 
   /* driving per day: a leg belongs to the day its destination is on */
@@ -894,6 +949,7 @@ async function wireTotals(host, id){
   let holiday = '';
   if (typeof holidaysBetween === 'function' && t.start && t.end){
     const hs = await holidaysBetween(t.start, t.end);
+    if (!mine()) return;
     if (hs && hs.length) holiday = hs.map(x => x.name).join(', ');
   }
 
