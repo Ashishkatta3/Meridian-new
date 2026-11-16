@@ -920,3 +920,57 @@
   .ac-stat b{ font-size: 21px; }
   .ac-chip{ padding: 9px 12px; font-size: 12.5px; }
 }
+
+
+/* ===========================================================
+   THE BOARD WRAPS
+
+   Days used to run off to the right behind a horizontal scrollbar,
+   so a week-long trip meant scrolling sideways to see Thursday. They
+   now wrap onto new rows and the board grows downwards, with the map
+   pinned beside it so it stays in view as you add stops.
+   =========================================================== */
+.pg-board{
+  display: flex; flex-wrap: wrap; align-items: flex-start;
+  gap: 14px; overflow: visible;
+}
+.pg-board-wrap{ overflow: visible; }
+.pg-col{ flex: 1 1 260px; min-width: 240px; max-width: 360px; }
+.pg-mapwrap{ position: sticky; top: 86px; align-self: start; }
+
+@media (max-width: 1080px){
+  .pg-mapwrap{ position: sticky; top: 72px; }
+}
+@media (max-width: 760px){
+  .pg-mapwrap{ position: static; }
+  .pg-col{ flex: 1 1 100%; max-width: none; }
+}
+
+/* the want-to-go chooser */
+.pk-check{
+  display: grid; gap: 2px; max-height: 46vh; overflow-y: auto;
+  margin: 4px 0 14px; padding-right: 4px;
+}
+.pk-check label{
+  display: flex; align-items: baseline; gap: 10px; cursor: pointer;
+  padding: 9px 10px; border-radius: var(--r-s); border: 1px solid transparent;
+}
+.pk-check label:hover{ background: var(--panel-2); border-color: var(--rule); }
+.pk-check input{ accent-color: var(--want); width: 16px; height: 16px; }
+.pk-check b{ font: 600 14px/1.3 var(--sans); color: var(--ink); }
+.pk-check i{ font: 500 9.5px/1 var(--mono); font-style: normal; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--faint); margin-left: auto; }
+
+/* a repeat visit is marked, so two identical cards are not confusing */
+.pg-stop.is-repeat .pg-stop-n::after{
+  content: 'again'; margin-left: 7px;
+  font: 500 8.5px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase;
+  color: var(--gold, #E3AC56);
+}
+/* the "again" tag needs something to hang on when a card has no number */
+.pg-stop.is-repeat .pg-stop-tx b::after{
+  content: 'again'; margin-left: 8px; vertical-align: middle;
+  font: 500 8.5px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase;
+  color: var(--gold, #E3AC56); border: 1px solid currentColor;
+  border-radius: 100px; padding: 3px 6px;
+}
