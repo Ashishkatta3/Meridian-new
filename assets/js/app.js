@@ -15,11 +15,30 @@
    is what the brief asked for. It re-checks itself, so the page
    turns over at sunset without a reload. */
 (function theme(){
+  /* Ask for location once, on the first visit, through the browser's
+     own permission prompt — there is nowhere else in the site that
+     asks, and the map wants to show where you are. Deferred a moment
+     so it never competes with the first paint, and never asked again
+     once answered: the browser remembers the decision, and a refusal
+     is final. */
+  (function askLocationOnce(){
+    let asked = '';
+    try { asked = localStorage.getItem('meridian.geo.asked') || ''; } catch(e){}
+    if (asked) return;
+    if (typeof askHere !== 'function' || !navigator.geolocation) return;
+    setTimeout(() => {
+      try { localStorage.setItem('meridian.geo.asked', '1'); } catch(e){}
+      askHere();            /* resolves to null if declined; nothing breaks */
+    }, 1200);
+  })();
+
   const btn = document.getElementById('themebtn');
   if (!btn) return;
   let mode = 'auto';
   try { mode = localStorage.getItem('meridian.theme') || 'auto'; } catch(e){}
   let timer = 0;
+
+  document.addEventListener('here:known', () => { if (mode === 'auto') apply(); });
 
   const apply = () => {
     if (mode === 'auto'){
