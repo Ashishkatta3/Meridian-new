@@ -52,8 +52,12 @@ function tripsAll(){ return TRIPS.slice().sort((a, b) => (b.updated || 0) - (a.u
 function tripGet(id){ return TRIPS.find(t => t.id === id) || null; }
 
 function tripCreate(name){
+  /* The first day gets a unique id like every other day. It used to be
+     the literal 'd1' in every trip, so two trips shared a day id — a
+     collision waiting to put a stop under the wrong trip's day. */
   const t = { id: tripId(), name: name || 'Untitled trip', created: Date.now(), updated: Date.now(),
-              days: [{ id: 'd1', label: 'Day 1', stops: [] }], ideas: [], notes: {} };
+              days: [{ id: 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+                       label: 'Day 1', stops: [] }], ideas: [], notes: {} };
   TRIPS.push(t); tripsSave(); return t;
 }
 function tripRename(id, name){ const t = tripGet(id); if (t){ t.name = name || t.name; t.updated = Date.now(); tripsSave(); } }

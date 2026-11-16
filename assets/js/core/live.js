@@ -611,6 +611,7 @@ function askHere(){
     navigator.geolocation.getCurrentPosition(pos => {
       HERE = { lat: pos.coords.latitude, lon: pos.coords.longitude, at: Date.now(), exact: true };
       try { sessionStorage.setItem('live.here', JSON.stringify(HERE)); } catch(e){}
+      document.dispatchEvent(new CustomEvent('here:known', { detail: HERE }));
       resolve(HERE);
     }, () => resolve(null), { enableHighAccuracy: false, timeout: 9000, maximumAge: 600000 });
   });
@@ -626,6 +627,7 @@ async function hereRough(){
   HERE = { lat: j.latitude, lon: j.longitude, city: j.city, region: j.region,
            at: Date.now(), exact: false };
   try { sessionStorage.setItem('live.here', JSON.stringify(HERE)); } catch(e){}
+  document.dispatchEvent(new CustomEvent('here:known', { detail: HERE }));
   return HERE;
 }
 

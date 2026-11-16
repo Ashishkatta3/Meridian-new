@@ -142,9 +142,26 @@ async function tripInvite(tripId, email){
   if (!sb || !me) return { error: 'Sign in first.' };
   const addr = (email || '').trim().toLowerCase();
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(addr)) return { error: 'That does not look like an email address.' };
+
+  /* The invite policy checks that the trip exists in the database and
+     that you own it. A trip made in this browser before you signed in
+     is not there yet, so the database answers "violates row-level
+     security" — which reads like a permissions bug and is really a
+     missing row. Put the trip up first, then invite. */
+  const t = typeof tripGet === 'function' ? tripGet(tripId) : null;
+  if (!t) return { error: 'That trip is not open any more.' };
+  try {
+    const up = await sb.from('trips').upsert(tripToRow(t, me.id), { onConflict: 'id' });
+    if (up.error) return { error: 'Could not save the trip before sharing — ' + up.error.message };
+  } catch(e){ return { error: e.message }; }
+
   try {
     const { error } = await sb.from('trip_invites').insert({ trip_id: tripId, email: addr, invited_by: me.id });
-    if (error && !/duplicate/i.test(error.message)) return { error: error.message };
+    if (error && !/duplicate/i.test(error.message)){
+      if (/row-level security/i.test(error.message))
+        return { error: 'Only the person who created a trip can invite people to it.' };
+      return { error: error.message };
+    }
     return { ok: true };
   } catch(e){ return { error: e.message }; }
 }

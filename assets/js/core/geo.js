@@ -127,3 +127,84 @@ function bestTimeOf(place){
   if (r === 'alaska') return 'June to August for long days and open roads.';
   return 'Late spring (May–Jun) and fall (Sep–Oct) — the mildest, prettiest months.';
 }
+
+/* ===========================================================
+   A POINT THAT IS NOT IN THE ATLAS
+
+   The national map's coordinates were projected at build time, so
+   there is no projection function here to send an arbitrary
+   latitude and longitude through — and "where am I" needs exactly
+   that.
+
+   Rather than reimplement Albers (and its Alaska and Hawaii insets,
+   which sit at their own scale and angle), this fits a small affine
+   transform to the nearest places already on the map and uses it.
+   Over a few hundred miles any map projection is very nearly
+   affine, so the fit is accurate to about a pixel — and because the
+   neighbours of an Alaskan point are Alaskan, the insets come out
+   right without being special-cased at all.
+   =========================================================== */
+function latLonToMapXY(lat, lon, k){
+  if (typeof MAP_XY === 'undefined' || typeof PLACES === 'undefined') return null;
+  if (typeof lat !== 'number' || typeof lon !== 'number') return null;
+
+  const near = [];
+  Object.keys(MAP_XY).forEach(id => {
+    const p = PLACES[id]; if (!p) return;
+    const pl = (typeof placeGet === 'function') ? placeGet(id) : null;
+    const la = pl ? pl.lat : p[3], lo = pl ? pl.lon : p[4];
+    if (typeof la !== 'number') return;
+    near.push({ la: la, lo: lo, xy: MAP_XY[id], d: haversine(lat, lon, la, lo) });
+  });
+  if (near.length < 4) return null;
+  near.sort((a, b) => a.d - b.d);
+  const pts = near.slice(0, k || 10);
+
+  /* Least squares for  x = A·lon + B·lat + C  (and the same for y),
+     solved through the 3×3 normal equations. */
+  const solve = pick => {
+    let s11=0,s12=0,s13=0,s22=0,s23=0,s33=0, t1=0,t2=0,t3=0;
+    pts.forEach(p => {
+      const u = p.lo - lon, v = p.la - lat, w = pick(p);
+      s11+=u*u; s12+=u*v; s13+=u; s22+=v*v; s23+=v; s33+=1;
+      t1+=u*w; t2+=v*w; t3+=w;
+    });
+    const m = [[s11,s12,s13],[s12,s22,s23],[s13,s23,s33]], t = [t1,t2,t3];
+    /* Gaussian elimination with partial pivoting */
+    for (let i = 0; i < 3; i++){
+      let piv = i;
+      for (let r = i+1; r < 3; r++) if (Math.abs(m[r][i]) > Math.abs(m[piv][i])) piv = r;
+      if (Math.abs(m[piv][i]) < 1e-12) return null;
+      if (piv !== i){ const tm=m[i]; m[i]=m[piv]; m[piv]=tm; const tt=t[i]; t[i]=t[piv]; t[piv]=tt; }
+      for (let r = i+1; r < 3; r++){
+        const f = m[r][i]/m[i][i];
+        for (let c = i; c < 3; c++) m[r][c] -= f*m[i][c];
+        t[r] -= f*t[i];
+      }
+    }
+    const out = [0,0,0];
+    for (let i = 2; i >= 0; i--){
+      let acc = t[i];
+      for (let c = i+1; c < 3; c++) acc -= m[i][c]*out[c];
+      out[i] = acc/m[i][i];
+    }
+    return out;
+  };
+  const cx = solve(p => p.xy[0]), cy = solve(p => p.xy[1]);
+  if (!cx || !cy) return null;
+
+  /* How well does the fit reproduce the places it was built from? In
+     the lower 48 this is well under a pixel. Where the atlas is thin
+     and spread over an inset — Alaska — it is not, and a dot in the
+     wrong place is worse than no dot, so give up instead. */
+  const res = pts.map(p => {
+    const u = p.lo - lon, v = p.la - lat;
+    return Math.hypot(cx[0]*u + cx[1]*v + cx[2] - p.xy[0],
+                      cy[0]*u + cy[1]*v + cy[2] - p.xy[1]);
+  }).sort((m, n) => m - n);
+  if (res[res.length >> 1] > 6) return null;
+
+  /* u and v are zero at the point itself, so the answer is the
+     constant term. */
+  return [cx[2], cy[2]];
+}
