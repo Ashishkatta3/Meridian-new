@@ -114,12 +114,18 @@ function groupStops(stops){
 }
 
 /* drive time between two places, skipped when it is the same place */
-function legHTML(fromParent, toParent){
+/* The straight-line estimate shown until the router answers. It is
+   deliberately labelled the same way the day totals are, and
+   wireTotals overwrites it with the real road time, so the cards and
+   the day headers can never disagree — they used to, and it read as
+   the day total counting the previous day twice. */
+function legHTML(fromParent, toParent, toStop){
   if (!fromParent || fromParent === toParent) return '';
-  const a = placeGet(fromParent), b = placeGet(toParent);
+  const a = placeGet(stopBase(fromParent)), b = placeGet(stopBase(toParent));
   if (!a || !b) return '';
   const mi = haversine(a.lat, a.lon, b.lat, b.lon);
-  return '<span class="pg-leg">' + fmtDrive(driveHours(mi)) + ' from ' + plEsc(a.name) + '</span>';
+  return '<span class="pg-leg" data-legto="' + plEsc(toStop || toParent) + '">'
+    + fmtDrive(driveHours(mi)) + ' from ' + plEsc(a.name) + '</span>';
 }
 
 /* The parent place the previous day ended on, or null if this is the
@@ -162,7 +168,7 @@ function renderGroups(t, stops, listId, fromParent){
   const groups = groupStops(stops);
   let h = '', prev = fromParent || null;
   groups.forEach(g => {
-    const leg = legHTML(prev, g.parent);
+    const leg = legHTML(prev, g.parent, g.place || g.parent);
     if (g.place){
       h += stopCard(t, g.place, listId, leg, false, g.spots.length);
     } else {
@@ -194,12 +200,13 @@ function stopCard(t, pid, listId, leg, isSub, subCount){
   const dayOpts = t.days.map(d => '<option value="' + d.id + '"' + (d.id === listId ? ' selected' : '') + '>' + plEsc(d.label) + '</option>').join('')
                 + '<option value="ideas"' + (listId === 'ideas' ? ' selected' : '') + '>Ideas</option>';
 
-  return '<article class="pg-stop' + (isSub ? ' is-sub' : '') + '" data-stop="' + pid + '">'
+  return '<article class="pg-stop' + (isSub ? ' is-sub' : '') + (p.repeat ? ' is-repeat' : '')
+    + '" data-stop="' + plEsc(pid) + '">'
     + (leg || '')
     + '<div class="pg-stop-in">'
     +   '<button class="pg-grip" data-drag title="Drag to move">&#10283;</button>'
     +   (p.photoId
-          ? '<span class="pg-stop-ph' + (isSub ? ' is-spot' : '') + '" data-pgphoto="' + p.photoId + '"></span>'
+          ? '<span class="pg-stop-ph' + (isSub ? ' is-spot' : '') + '" data-pgphoto="' + plEsc(stopBase(p.photoId)) + '"></span>'
           : '<span class="pg-stop-ph is-pin" title="Found outside the atlas">📍</span>')
     +   '<div class="pg-stop-tx">'
     +     '<a href="' + p.href + '">' + plEsc(p.name) + '</a>'
@@ -361,7 +368,7 @@ async function osmNear(lat, lon, tag, word){
 function addFromRow(t){
   const want = (typeof markedIds === 'function') ? markedIds('want').filter(p => !tripHasPlace(t, p)) : [];
   let h = '<div class="pg-from">';
-  if (want.length) h += '<button class="pg-btn pg-btn-s" id="addWant">Add ' + want.length + ' want-to-go place' + (want.length === 1 ? '' : 's') + '</button>';
+  if (want.length) h += '<button class="pg-btn pg-btn-s" id="addWant">Choose from ' + want.length + ' want-to-go place' + (want.length === 1 ? '' : 's') + '…</button>';
   else h += '<span class="pg-note">Mark places “want to go” on the map and you can drop them all in at once.</span>';
   return h + '</div>';
 }
@@ -370,9 +377,19 @@ function addFromRow(t){
 function mountPlanner(host, tripIdOrNull){
   PG_MOUNT++;                       /* anything still in flight is stale */
   const repaint = () => mountPlanner(host, tripIdOrNull);
-  /* the board is rebuilt wholesale on every change, so a map left
-     over from the last paint is pointing at a node that is gone */
-  if (typeof PG_MAP !== 'undefined' && PG_MAP){ PG_MAP.destroy(); PG_MAP = null; }
+
+  /* The board is rebuilt wholesale on every change. Tearing Leaflet
+     down and standing it up again each time — new tiles, new markers,
+     a fresh fit — is what made dragging stops feel sticky, so the map
+     node is lifted out before the rebuild and put back afterwards. */
+  let keptMap = null;
+  const liveMap = host.querySelector('#pgMap');
+  if (PG_MAP && liveMap && liveMap.firstChild){
+    keptMap = liveMap;
+    if (keptMap.parentNode) keptMap.parentNode.removeChild(keptMap);
+  } else if (PG_MAP){
+    PG_MAP.destroy(); PG_MAP = null;
+  }
   host.innerHTML = tripIdOrNull ? renderTrip(tripIdOrNull) : renderPlannerList();
   window.scrollTo(0, 0);
   host.querySelectorAll('[data-pgphoto]').forEach(el => pgPhoto(el, placeGet(el.dataset.pgphoto)));  // ids here are already place ids
@@ -415,6 +432,13 @@ function mountPlanner(host, tripIdOrNull){
       loadStaySuggestions(host, id, repaint);
     }
   };
+  /* put the living map back where the new markup expects it */
+  if (keptMap){
+    const slot = host.querySelector('#pgMap');
+    if (slot && slot.parentNode){ slot.parentNode.replaceChild(keptMap, slot); }
+    else { PG_MAP.destroy(); PG_MAP = null; }
+  }
+
   host.querySelectorAll('[data-ptab]').forEach(b => b.onclick = () => showTab(b.dataset.ptab));
   showTab(PG_TAB);
   wireStay(host, id, repaint);
@@ -429,7 +453,11 @@ function mountPlanner(host, tripIdOrNull){
   on('#shareTrip', () => openShare(id));
   paintShareNote(host, id);
   on('#expTxt', () => exportTrip(tripGet(id)));
-  on('#addWant', () => { markedIds('want').forEach(p => tripAddPlace(id, p)); repaint(); });
+  /* This used to drop every want-to-go place straight into whichever
+     trip happened to be open, which is why places from one trip kept
+     appearing in another — the want list is global, the trip is not.
+     Now it opens a chooser and nothing lands without being ticked. */
+  on('#addWant', () => openWantPicker(id, repaint));
 
   host.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { tripRemovePlace(id, b.dataset.rm); repaint(); });
   host.querySelectorAll('[data-delday]').forEach(b => b.onclick = () => { tripRemoveDay(id, b.dataset.delday); repaint(); });
@@ -569,8 +597,14 @@ function wireSearch(host, id, repaint){
     /* same rule as the place page: an attraction brings its city
        with it, so it has something to sit under on the board */
     out.querySelectorAll('[data-addpid]').forEach(b => b.onclick = () => {
-      if (typeof addStopWithParent === 'function') addStopWithParent(id, b.dataset.addpid);
-      else tripAddPlace(id, b.dataset.addpid);
+      const pid = b.dataset.addpid;
+      /* Already on the trip? Then this is a deliberate second visit —
+         a loop back through, or two nights in the same town — so add
+         it again as its own stop rather than silently doing nothing. */
+      const t = tripGet(id);
+      if (t && tripHasPlace(t, pid)) tripAddPlace(id, pid, true);
+      else if (typeof addStopWithParent === 'function') addStopWithParent(id, pid);
+      else tripAddPlace(id, pid);
       repaint();
     });
     out.querySelectorAll('[data-addx]').forEach(b => b.onclick = () => { tripAddPlace(id, b.dataset.addx); repaint(); });
@@ -584,7 +618,9 @@ function wireSearch(host, id, repaint){
     const t = tripGet(id);
     /* places AND the attractions inside them — searching only places
        hid six thousand things to do behind the city they sit in */
-    const atlas = searchAll(q, 10).filter(r => !tripHasPlace(t, r.id)).slice(0, 7);
+    /* Already-added places stay in the results now: adding one again
+       is a real thing to want, for a loop or a second night. */
+    const atlas = searchAll(q, 10).slice(0, 7);
 
     render(atlas, null, true);
     /* wait for a pause in typing before troubling a public service */
@@ -594,7 +630,9 @@ function wireSearch(host, id, repaint){
   });
 }
 
+const GEO_CACHE = {};
 async function geoSearch(q){
+  if (GEO_CACHE[q]) return GEO_CACHE[q];
   const label = f => {
     const p = f.properties || {};
     const bits = [p.city || p.district || p.county, p.state, p.country].filter(Boolean);
@@ -606,7 +644,7 @@ async function geoSearch(q){
     if (r.ok){
       const j = await r.json();
       const hits = (j.features || []).map(label).filter(x => x.name);
-      if (hits.length) return hits;
+      if (hits.length){ GEO_CACHE[q] = hits; return hits; }
     }
   } catch(e){}
   try {   /* fallback: Nominatim, same data, stricter about traffic */
@@ -768,10 +806,23 @@ function openShare(id){
   const close = () => { if (wrap.parentNode) wrap.parentNode.removeChild(wrap); };
   wrap.addEventListener('click', async e => {
     if (e.target === wrap || e.target.closest('[data-close]')) return close();
-    if (e.target.closest('[data-invite]')){
+    const inv = e.target.closest('[data-invite]');
+    if (inv){
+      /* Always say something. This button could previously appear to
+         do nothing at all: an exception inside the handler left the
+         promise rejected and no message was ever written. */
       const em = wrap.querySelector('#shEmail').value;
-      const r = await tripInvite(id, em);
       const m = wrap.querySelector('#shMsg');
+      inv.disabled = true;
+      m.className = 'ac-msg'; m.textContent = 'Sending the invite…';
+      let r;
+      try {
+        r = await tripInvite(id, em);
+      } catch(err){
+        r = { error: 'Could not send that invite — ' + (err && err.message ? err.message : err) };
+      }
+      inv.disabled = false;
+      if (!r) r = { error: 'No answer from the database. Check the Supabase keys on the Account page.' };
       m.textContent = r.error || ('Invited ' + em + '.');
       m.className = 'ac-msg ' + (r.error ? 'is-bad' : 'is-ok');
       if (!r.error){ wrap.querySelector('#shEmail').value = ''; listPeople(); }
@@ -807,9 +858,11 @@ function tripPoints(t){
   const out = [], seen = {};
   const add = (sid, dayId) => {
     const info = stopInfo(sid); if (!info) return;
+    /* keyed on the stop, not the place: visiting somewhere twice is a
+       real itinerary, and both visits are points on the drive */
     const key = info.kind === 'spot' ? info.parent : sid;
     if (seen[key]) return; seen[key] = 1;
-    const p = placeGet(key) || (typeof info.lat === 'number' ? info : null);
+    const p = placeGet(stopBase(key)) || (typeof info.lat === 'number' ? info : null);
     if (!p || typeof p.lat !== 'number') return;
     out.push({ id: key, stopId: sid, day: dayId, lat: p.lat, lon: p.lon,
                name: p.name || info.name, abbr: p.abbr || '' });
@@ -921,13 +974,23 @@ async function wireTotals(host, id, mount){
   if (!mine()) return;
   const fuel = (route.miles / MPG) * gas.usd;
 
-  /* driving per day: a leg belongs to the day its destination is on */
+  /* Driving per day: a leg belongs to the day its destination is on,
+     which is what makes the overnight drive count against the day it
+     gets you to. The same leg is written onto the card, so the cards
+     always add up to the header. */
   const perDay = {};
   pts.forEach((p, i) => {
     if (!i) return;
     const leg = route.legs[i - 1];
     if (!leg) return;
     perDay[p.day] = (perDay[p.day] || 0) + leg.hours;
+    const span = host.querySelector('[data-legto="' + CSS.escape(p.id) + '"]');
+    if (span){
+      const from = pts[i - 1].name;
+      span.textContent = fmtDrive(leg.hours) + ' from ' + from;
+      span.title = Math.round(leg.miles) + ' miles'
+        + (route.real ? ' by road' : ' (straight-line estimate)');
+    }
   });
 
   let over = 0;
@@ -967,4 +1030,54 @@ async function wireTotals(host, id, mount){
     +   (route.real ? 'Road distances from OSRM' : 'Straight-line estimate — the router did not answer')
     +   ' · ' + MPG + " mpg assumed</p>";
   strip.hidden = false;
+}
+
+/* ===========================================================
+   CHOOSING FROM THE WANT LIST
+
+   The want-to-go list belongs to you, not to a trip. Emptying it
+   into whatever trip was open is how places from one trip turned up
+   in another, so this asks which ones — nothing is added until it
+   is ticked.
+   =========================================================== */
+function openWantPicker(tripIdForList, repaint){
+  const t = tripGet(tripIdForList); if (!t) return;
+  const want = markedIds('want').filter(pid => !tripHasPlace(t, pid));
+  if (!want.length) return;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'pk-wrap';
+  wrap.innerHTML = '<div class="pk" role="dialog" aria-modal="true" aria-label="Add want-to-go places">'
+    + '<button class="pk-x" data-close aria-label="Close">&times;</button>'
+    + '<span class="lab">Want to go</span><h3>Add to ' + plEsc(t.name) + '</h3>'
+    + '<p class="pk-sub">Your want-to-go list is shared across every trip. Tick the ones that belong on this one.</p>'
+    + '<div class="pk-check">'
+    +   want.map(pid => {
+          const p = placeGet(pid); if (!p) return '';
+          return '<label><input type="checkbox" value="' + plEsc(pid) + '">'
+            + '<b>' + plEsc(p.name) + '</b><i>' + plEsc(stateName(p.abbr)) + '</i></label>';
+        }).join('')
+    + '</div>'
+    + '<div class="pk-new"><button class="pg-btn" data-all>Tick all</button>'
+    +   '<button class="pg-btn pg-btn-go" data-add>Add ticked</button></div></div>';
+  document.body.appendChild(wrap);
+
+  const close = () => { if (wrap.parentNode) wrap.parentNode.removeChild(wrap); };
+  wrap.addEventListener('pointerdown', e => {
+    if (e.target === wrap || (e.target.closest && e.target.closest('[data-close]'))) close();
+  });
+  wrap.addEventListener('click', e => {
+    if (e.target === wrap || e.target.closest('[data-close]')) return close();
+    if (e.target.closest('[data-all]')){
+      wrap.querySelectorAll('input[type=checkbox]').forEach(c => c.checked = true);
+      return;
+    }
+    if (e.target.closest('[data-add]')){
+      const picked = [...wrap.querySelectorAll('input[type=checkbox]:checked')].map(c => c.value);
+      picked.forEach(pid => tripAddPlace(tripIdForList, pid));
+      close();
+      if (picked.length) toast(picked.length + ' added to ' + t.name);
+      repaint();
+    }
+  });
 }
