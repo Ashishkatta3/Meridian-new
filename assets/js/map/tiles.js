@@ -38,12 +38,22 @@ function leafletReady(){
    A numbered pin for the planner, where order is the whole point, and
    a plain dot for a city page, where it is not. */
 function pinIcon(L, n, kind, on){
-  const tone = kind === 'food' ? 'is-food' : kind === 'stay' ? 'is-stay' : '';
+  const tone = kind === 'food' ? 'is-food' : kind === 'stay' ? 'is-stay'
+             : kind === 'idea' ? 'is-idea' : '';
+  const num = (n === null || n === undefined) ? '' : String(n);
+  /* The number is drawn as SVG text with dominant-baseline="central",
+     which centres on the font's own central axis. Centring a line of
+     HTML text instead centres the line box, and a digit has no
+     descender, so it always sat visibly high in the circle. */
+  const html = num
+    ? '<svg viewBox="0 0 26 26" aria-hidden="true"><text x="13" y="13">' + num + '</text></svg>'
+    : '';
+  const size = num ? 26 : 15;
   return L.divIcon({
     className: 'tm-pin ' + tone + (on ? ' is-on' : ''),
-    html: '<span>' + (n === null || n === undefined ? '' : n) + '</span>',
-    iconSize: [n === null ? 16 : 26, n === null ? 16 : 26],
-    iconAnchor: [n === null ? 8 : 13, n === null ? 8 : 13]
+    html: html,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2]
   });
 }
 
@@ -223,7 +233,7 @@ async function tileMap(host, opts){
   map.setView([o.lat || 39.5, o.lon || -98.5], o.zoom || 11);
 
   const marks = {};          /* id -> { marker, lat, lon, n } */
-  let line = null, current = null;
+  let line = null, current = null, me = null;
 
   const api = {
     map: map,
@@ -292,6 +302,20 @@ async function tileMap(host, opts){
         c.marker.setIcon(pinIcon(L, c.n, c.kind, false));
       }
       current = null;
+      return api;
+    },
+
+    /* Where the reader is, as a pulsing dot that is not a pin — it is
+       not somewhere you chose, it is where you happen to be. */
+    locate(lat, lon){
+      if (typeof lat !== 'number') return api;
+      if (me) map.removeLayer(me);
+      me = L.marker([lat, lon], {
+        icon: L.divIcon({ className: 'tm-me', html: '<i></i><b></b>',
+                          iconSize: [18, 18], iconAnchor: [9, 9] }),
+        keyboard: false, interactive: false, zIndexOffset: -200
+      }).addTo(map);
+      me.bindTooltip('You are here', { direction:'top', offset:[0,-10], className:'tm-tip' });
       return api;
     },
 

@@ -126,6 +126,7 @@ function usMapHTML(opts){
   +         '<g class="um-land">' + states + '</g>'
   +         '<g class="um-labels">' + labels + '</g>'
   +         '<g class="um-pins"></g>'
+  +         '<g class="um-me" hidden></g>'
   +       '</g>'
   +     '</svg>'
   +     '<div class="um-hint" data-umhint>Drag to move · pinch or scroll to zoom</div>'
@@ -483,8 +484,35 @@ function wireUsMap(root, opts){
 
   clamp(); apply(); draw();
 
+  /* Where the reader is, once they have said so. The national map was
+     projected at build time, so the position comes from fitting the
+     projection locally to the nearest places (see latLonToMapXY). */
+  const showMe = (lat, lon) => {
+    const g = el.querySelector('.um-me');
+    if (!g) return false;
+    const xy = (typeof latLonToMapXY === 'function') ? latLonToMapXY(lat, lon) : null;
+    if (!xy){ g.hidden = true; return false; }
+    g.innerHTML =
+        '<circle class="um-me-pulse" cx="' + xy[0] + '" cy="' + xy[1] + '" r="4"/>'
+      + '<circle class="um-me-dot" cx="' + xy[0] + '" cy="' + xy[1] + '" r="4"/>'
+      + '<title>You are here</title>';
+    g.hidden = false;
+    return true;
+  };
+
   /* let callers drive it */
-  el.__map = { focusState: focusState,
+  el.__map = { focusState: focusState, showMe: showMe,
     reset: () => { k = 1; tx = 0; ty = 0; clamp(); apply(); draw(); } };
+
+  /* If the reader already allowed location earlier in the session,
+     put the dot up without asking again. */
+  if (typeof hereCached === 'function'){
+    const h = hereCached();
+    if (h) showMe(h.lat, h.lon);
+  }
+  document.addEventListener('here:known', e => {
+    if (e.detail) showMe(e.detail.lat, e.detail.lon);
+  });
+
   return el.__map;
 }
