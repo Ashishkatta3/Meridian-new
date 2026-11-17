@@ -25,6 +25,19 @@ function setMark(id, value){
   if (value) MARKS[id] = value; else delete MARKS[id];
   try { localStorage.setItem(MARK_KEY, JSON.stringify(MARKS)); } catch(e){}
   document.dispatchEvent(new CustomEvent('marks:changed', { detail:{ id:id, value:value } }));
+  /* and up to the account, so the map you fill in on a laptop is the
+     map you see on a phone */
+  if (typeof marksPush === 'function') marksPush(id, value);
+}
+
+/* every mark, for syncing */
+function allMarks(){ return Object.assign({}, MARKS); }
+
+/* Replace the lot — used when the account's marks come down. */
+function marksReplace(next){
+  MARKS = next || {};
+  try { localStorage.setItem(MARK_KEY, JSON.stringify(MARKS)); } catch(e){}
+  document.dispatchEvent(new CustomEvent('marks:changed', { detail:{ id:null, value:null } }));
 }
 
 /* been -> want -> unmarked -> been */

@@ -397,14 +397,14 @@ const SPOT_PHOTO_CACHE = {};
 function cachedSpotPhoto(sid){
   if (SPOT_PHOTO_CACHE[sid] !== undefined) return SPOT_PHOTO_CACHE[sid];
   try {
-    const v = sessionStorage.getItem('spotph2:' + sid);
+    const v = localStorage.getItem('spotph3:' + sid);
     if (v !== null){ SPOT_PHOTO_CACHE[sid] = v; return v; }
   } catch(e){}
   return undefined;
 }
 function rememberSpotPhoto(sid, url){
   SPOT_PHOTO_CACHE[sid] = url || '';
-  try { sessionStorage.setItem('spotph2:' + sid, url || ''); } catch(e){}
+  try { localStorage.setItem('spotph3:' + sid, url || ''); } catch(e){}
 }
 
 /* ---- is this photo actually of this thing? ----

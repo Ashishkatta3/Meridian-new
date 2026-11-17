@@ -295,6 +295,9 @@
          which needs no key and is never empty. */
       sub.textContent = 'No listings nearby this week. The closest places in the atlas instead:';
       box.innerHTML = nearbyPlacesHTML(here, 8);
+      /* these cards carry data-photo and nothing was painting them,
+         which is why they came out as empty grey blocks */
+      if (typeof watchPhotos === 'function') watchPhotos(box);
       return;
     }
     sub.textContent = list.length + ' within 200 miles this week'

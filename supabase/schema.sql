@@ -203,4 +203,140 @@ create trigger trips_touch before update on public.trips
   for each row execute function public.touch_trip();
 
 -- Let the planner receive other people's edits live.
-alter publication supabase_realtime add table public.trips;
+--
+-- This HAS to be wrapped. A bare `alter publication ... add table` throws
+--   relation "trips" is already member of publication "supabase_realtime"
+-- the second time it runs, and the SQL editor runs a pasted file as one
+-- transaction — so on any re-run that error aborted every statement BELOW
+-- this line. That is why the marks table at the end of this file never got
+-- created, and so why a map filled in on a laptop was still empty on a
+-- phone: the block that fixes it was never reached.
+do $$
+begin
+  alter publication supabase_realtime add table public.trips;
+exception
+  when duplicate_object then null;   -- already published, nothing to do
+  when others then null;             -- realtime not enabled on this project
+end $$;
+
+-- ===========================================================
+-- MARKS — the places you have been to and want to go
+--
+-- These were never stored anywhere but the browser, which is why a
+-- map filled in on a laptop was empty on a phone. One row per person
+-- per place, so a mark set on either device shows up on both.
+--
+-- Run this block on an existing database; it is safe to re-run.
+-- ===========================================================
+create table if not exists public.marks (
+  user_id    uuid not null references auth.users on delete cascade,
+  place_id   text not null,
+  value      text not null check (value in ('been','want')),
+  updated_at timestamptz not null default now(),
+  primary key (user_id, place_id)
+);
+
+alter table public.marks enable row level security;
+
+-- your marks are yours: nobody else reads or writes them
+drop policy if exists "marks are private" on public.marks;
+create policy "marks are private" on public.marks
+  for all
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid());
+
+create index if not exists marks_user on public.marks (user_id);
+
+
+-- ===========================================================
+-- SHARE LINKS — send the plan to someone without an account
+--
+-- A link carries a token and a role. A viewer link opens the trip
+-- read-only for anybody who has the URL, signed in or not. An editor
+-- link does the same, and additionally turns a signed-in visitor into
+-- a member of the trip, so from then on it is in their own list and
+-- their edits sync like any other member's.
+--
+-- Anonymous reading cannot go through the trips table: its policies
+-- are scoped to `authenticated`, and loosening them would open every
+-- trip. Instead one SECURITY DEFINER function returns exactly one
+-- trip for exactly one valid token, and that is the only door the
+-- anon key can open.
+--
+-- Safe to re-run.
+-- ===========================================================
+create table if not exists public.trip_links (
+  token       text primary key,
+  trip_id     uuid not null references public.trips on delete cascade,
+  role        text not null default 'viewer' check (role in ('viewer','editor')),
+  label       text,                                  -- "the group chat", "mum"
+  created_by  uuid not null references auth.users on delete cascade,
+  created_at  timestamptz not null default now(),
+  revoked_at  timestamptz
+);
+
+create index if not exists trip_links_trip on public.trip_links (trip_id);
+
+alter table public.trip_links enable row level security;
+
+-- Only the trip's owner sees or manages its links. Visitors never read
+-- this table at all; they go through trip_by_token below.
+drop policy if exists "owner manages share links" on public.trip_links;
+create policy "owner manages share links" on public.trip_links
+  for all to authenticated
+  using      (exists (select 1 from public.trips where id = trip_id and owner = auth.uid()))
+  with check (exists (select 1 from public.trips where id = trip_id and owner = auth.uid()));
+
+-- ---------- the one public door ----------
+-- Returns a single trip for a single live token, to anyone holding it.
+-- It deliberately returns no owner id, no member list and no email: a
+-- link leaks the itinerary it was made for and nothing else.
+create or replace function public.trip_by_token(tok text)
+returns table (id uuid, name text, data jsonb, role text, updated_at timestamptz)
+language sql
+security definer set search_path = public
+stable
+as $$
+  select t.id, t.name, t.data, l.role, t.updated_at
+  from public.trip_links l
+  join public.trips t on t.id = l.trip_id
+  where l.token = tok
+    and l.revoked_at is null;
+$$;
+
+revoke all on function public.trip_by_token(text) from public;
+grant execute on function public.trip_by_token(text) to anon, authenticated;
+
+-- ---------- an editor link, claimed ----------
+-- A signed-in visitor holding an editor link becomes a member, which
+-- is what makes the trip appear in their own list and their changes
+-- sync. A viewer link grants nothing persistent, by design: it is for
+-- people who should see the plan, not change it.
+create or replace function public.claim_link(tok text)
+returns table (trip_id uuid, role text, joined boolean)
+language plpgsql
+security definer set search_path = public
+as $$
+declare tid uuid; r text;
+begin
+  select l.trip_id, l.role into tid, r
+  from public.trip_links l
+  where l.token = tok and l.revoked_at is null;
+
+  if tid is null then
+    return;                                  -- no such link; caller shows "not found"
+  end if;
+
+  if r = 'editor' and auth.uid() is not null then
+    insert into public.trip_members (trip_id, user_id, role)
+    values (tid, auth.uid(), 'editor')
+    on conflict do nothing;
+    return query select tid, r, true;
+  else
+    return query select tid, r, false;
+  end if;
+end;
+$$;
+
+revoke all on function public.claim_link(text) from public;
+grant execute on function public.claim_link(text) to anon, authenticated;

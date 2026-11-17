@@ -148,6 +148,12 @@ async function tileWorks(spec){
 }
 
 let TILE_PICKED = null;
+
+/* Which provider actually answered the probe. offline.js needs it:
+   saving one provider's tiles and then drawing another's would cache
+   a great deal of nothing. Null until a map has probed once. */
+function tileSpecInUse(){ return TILE_PICKED; }
+
 async function tileSet(){
   if (TILE_PICKED) return TILE_PICKED;
 

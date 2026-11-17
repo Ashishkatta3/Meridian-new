@@ -20,7 +20,11 @@ let SB = null;              // the supabase client, once built
 let ME = null;              // { id, name, email } or null
 let AUTH_READY = false;
 
-const SB_CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
+/* 2.58 rather than 2.45: Supabase's newer publishable keys
+   (sb_publishable_…) arrived after 2.45 and older clients do not
+   always complete a request made with one — which looks from the
+   outside like a request that simply never answers. */
+const SB_CDN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.58.0/+esm';
 
 function authAnnounce(){
   document.dispatchEvent(new CustomEvent('auth:changed', { detail: { user: ME } }));

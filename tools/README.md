@@ -114,3 +114,95 @@ The Mapillary token is baked into the picker and into config.js
 (`MAPILLARY_TOKEN`); it is a client token, safe to ship. The node tool
 also reads Openverse now, so `--flickr` is no longer needed — but still
 works if you ever get a key.
+
+
+---
+
+## cloud-test.html — what is the database actually doing?
+
+Your trips, and your been/want marks, are written to Supabase from the
+browser, which means I cannot test them from here: every check I can run
+locally confirms the browser side is correct, and the failures you have
+been seeing live on the other side of the network.
+
+This page settles it. Open `tools/cloud-test.html`, paste the same URL
+and key that are in `assets/js/core/config.js`, plus an email and
+password you can sign in with, and press **Run the checks**. It tries
+every operation the site depends on and prints the exact Postgres error
+for each one:
+
+| Check | What a failure means |
+|---|---|
+| supabase-js loads | the CDN is blocked |
+| Sign in | the key is wrong, or the wrong kind |
+| Read the trips table | the select policy is refusing you |
+| Write a trip | the insert/update policy is refusing you |
+| Same id twice | **if this fails, it is the cause of places appearing under the wrong trip** |
+| marks table | the table does not exist — `schema.sql` did not finish (see below) |
+| trip_invites insert | invites cannot be written |
+| Realtime | other devices' edits will need a reload |
+
+It cleans up everything it writes.
+
+### Re-run schema.sql first
+
+There was a real bug in `schema.sql`: the line that turns on Realtime,
+
+```sql
+alter publication supabase_realtime add table public.trips;
+```
+
+throws `relation "trips" is already member of publication` the *second*
+time it runs. The SQL editor runs a pasted file as one transaction, so on
+a re-run that error **aborted every statement below it** — and the
+`marks` table is at the bottom of the file. That is why the places you
+marked on your laptop were not on your phone: the table they sync
+through was never created.
+
+It is now wrapped in an exception handler, so the file is safe to re-run
+whole. Do that before running the checks above.
+
+
+---
+
+## gather.js — filling in the atlas
+
+`node tools/gather.js` with no arguments prints the run order. The
+short version, in the order to run them:
+
+```bash
+node tools/gather.js --fetch --sets=wikidata,wiki   #  ~8 min, keyless
+node tools/gather.js --fetch --sets=nps             #  ~4 min, needs NPS_KEY
+node tools/gather.js --fetch --sets=climate         #  ~5 min, keyless
+node tools/gather.js --fetch --sets=photos,osm      #  ~40 min, keyless, slow on purpose
+node tools/gather.js --apply
+node tools/fix-photos.js --fetch
+node tools/fix-photos.js --apply
+```
+
+Then bump `?v=` in `index.html` **and** `VERSION` in `sw.js` — they
+have to match or the service worker will serve a mixed set of files.
+
+Nothing touches `assets/js/data/` until `--apply`, and `--apply` will
+not overwrite a value that is already there unless you add `--force`.
+So the hand-written sentences you care about survive by default, and
+the gaps get filled.
+
+### The freshness problem, specifically
+
+Every record it writes carries `reviewed` (the date you ran it) and,
+where it came from Wikipedia, `source_checked` — the date that article
+was itself last edited. That is the thing that makes "is this five
+years old?" answerable instead of assumed. After the first run you can
+sort by it and see exactly which entries are stale.
+
+### What needs your eye
+
+Two files land in `tools/out/` rather than going straight in:
+
+- `attractions-proposed.json` — named viewpoints, trailheads, museums
+  and monuments near each place. Overpass will cheerfully offer you
+  seven car parks called "Parking", so these are proposals.
+- `coord-check.txt` — places whose atlas coordinates are more than
+  three miles from Wikidata's. Usually the atlas is right and Wikidata
+  is pointing at a visitor centre, but it is worth a look.

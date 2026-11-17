@@ -39,6 +39,26 @@
       if (placeGet(id)){ mountPlace(page, id); view('place'); return; }
     }
 
+    /* The escape hatch, before anything else can get in the way: if
+       this browser is holding a broken copy of the site, #/reset has
+       to work even when the rest of it does not. */
+    if (hash === '/reset' && typeof mountReset === 'function'){
+      mountReset(page); view('planner'); return;
+    }
+
+    /* A shared trip comes first: somebody arriving on a link may have
+       no account and no trips of their own, and nothing else on the
+       way in should get a chance to redirect them. */
+    m = hash.match(/^\/shared\/([A-Za-z0-9_-]+)$/);
+    if (m && typeof mountShared === 'function'){
+      mountShared(page, m[1]); view('shared'); return;
+    }
+
+    m = hash.match(/^\/sheet\/(.+)$/);
+    if (m && typeof mountSheet === 'function'){
+      mountSheet(page, decodeURIComponent(m[1])); view('planner'); return;
+    }
+
     m = hash.match(/^\/planner\/(.+)$/);
     if (m && typeof mountPlanner === 'function'){
       mountPlanner(page, decodeURIComponent(m[1])); view('planner'); return;

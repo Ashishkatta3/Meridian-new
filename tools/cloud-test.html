@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meridian — what is my database actually doing?</title>
+<style>
+  :root{ --bg:#F7F5EF; --panel:#fff; --line:#E2DDD0; --ink:#20251F; --mut:#6E7468;
+         --ok:#2F7F6C; --bad:#B4453F; --warn:#B07D22; color-scheme:light; }
+  @media (prefers-color-scheme:dark){
+    :root{ --bg:#11140F; --panel:#181C16; --line:#2A3028; --ink:#E9ECE5; --mut:#8A9286;
+           --ok:#5FB3A1; --bad:#D4746D; --warn:#E3AC56; color-scheme:dark; }
+  }
+  *{ box-sizing:border-box; }
+  body{ margin:0; background:var(--bg); color:var(--ink);
+    font:400 15px/1.6 system-ui,-apple-system,sans-serif; }
+  .wrap{ max-width:860px; margin:0 auto; padding:30px 20px 80px; }
+  h1{ font-size:21px; margin:0 0 6px; }
+  p.lede{ color:var(--mut); max-width:62ch; margin:0 0 20px; }
+  .row{ background:var(--panel); border:1px solid var(--line); border-radius:11px;
+    padding:13px 15px; margin-bottom:9px; }
+  .row h2{ margin:0 0 4px; font-size:14px; font-weight:600; display:flex; gap:10px; align-items:baseline; }
+  .tag{ font:600 10px/1 ui-monospace,monospace; letter-spacing:.07em; text-transform:uppercase;
+    padding:4px 7px; border-radius:5px; }
+  .t-ok{ color:var(--ok); border:1px solid currentColor; }
+  .t-bad{ color:var(--bad); border:1px solid currentColor; }
+  .t-warn{ color:var(--warn); border:1px solid currentColor; }
+  .t-wait{ color:var(--mut); border:1px solid currentColor; }
+  .row p{ margin:4px 0 0; font-size:13px; color:var(--mut); }
+  code{ font:400 12px/1.5 ui-monospace,monospace; word-break:break-all; }
+  .creds{ display:grid; gap:8px; margin-bottom:18px; }
+  input{ width:100%; font:400 13px/1 ui-monospace,monospace; color:var(--ink);
+    background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:11px 12px; }
+  button{ font:500 13px/1 system-ui,sans-serif; cursor:pointer; border-radius:100px;
+    border:1px solid var(--line); background:transparent; color:var(--ink); padding:11px 18px; }
+  button.go{ background:var(--ok); border-color:var(--ok); color:#07120F; }
+  #verdict{ margin-top:22px; padding:16px 18px; border-radius:11px;
+    border:2px solid var(--line); background:var(--panel); white-space:pre-wrap;
+    font:400 13.5px/1.7 system-ui,sans-serif; }
+</style>
+</head>
+<body><div class="wrap">
+
+<h1>What is my database actually doing?</h1>
+<p class="lede">Paste the same two values that are in <code>assets/js/core/config.js</code>. This signs
+in (or signs up) with a throwaway check, then tries every operation the site relies on and reports the
+exact error for each. Nothing here writes anything it does not delete afterwards.</p>
+
+<div class="creds">
+  <input id="url" placeholder="https://xxxx.supabase.co" autocomplete="off">
+  <input id="key" placeholder="anon / publishable key" autocomplete="off">
+  <input id="em"  placeholder="your account email (one you can sign in with)" autocomplete="off">
+  <input id="pw"  type="password" placeholder="password for that account" autocomplete="off">
+  <button id="run" class="go">Run the checks</button>
+</div>
+
+<div id="rows"></div>
+<div id="verdict" hidden></div>
+
+</div>
+<script type="module">
+const $ = s => document.querySelector(s);
+const rows = $('#rows');
+const notes = [];
+
+function row(id, title){
+  const el = document.createElement('div');
+  el.className = 'row'; el.id = 'r-' + id;
+  el.innerHTML = '<h2>' + title + ' <span class="tag t-wait" id="t-' + id + '">waiting</span></h2>'
+    + '<p id="p-' + id + '"></p>';
+  rows.appendChild(el);
+}
+function set(id, state, msg){
+  const t = $('#t-' + id);
+  t.className = 'tag t-' + state;
+  t.textContent = state === 'ok' ? 'works' : state === 'bad' ? 'failed' : state === 'warn' ? 'check' : 'waiting';
+  $('#p-' + id).textContent = msg || '';
+  if (state === 'bad') notes.push(title(id) + ': ' + msg);
+}
+function title(id){ return ($('#r-' + id + ' h2') || {}).textContent.replace(/\s+\w+$/, '').trim(); }
+
+const CHECKS = [
+  ['load',    'supabase-js loads'],
+  ['auth',    'Sign in with those keys'],
+  ['selTrip', 'Read the trips table'],
+  ['insTrip', 'Write a trip (upsert on id)'],
+  ['dupTrip', 'Upsert the same id twice (no duplicate row)'],
+  ['marks',   'The marks table exists and accepts a row'],
+  ['inv',     'Insert into trip_invites'],
+  ['rt',      'Realtime subscription']
+];
+CHECKS.forEach(c => row(c[0], c[1]));
+
+const deadline = (pr, ms, what) => Promise.race([
+  pr, new Promise(r => setTimeout(() => r({ error:{ message: what + ' never answered (' + ms/1000 + 's). '
+    + 'That is the same hang the site shows.' } }), ms))
+]);
+
+$('#run').onclick = async () => {
+  notes.length = 0;
+  $('#verdict').hidden = true;
+  const url = $('#url').value.trim(), key = $('#key').value.trim();
+  const em = $('#em').value.trim(), pw = $('#pw').value;
+  if (!url || !key){ alert('URL and key are both needed.'); return; }
+
+  let createClient;
+  try {
+    ({ createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.58.0/+esm'));
+    set('load', 'ok', 'Client 2.58.0 loaded.');
+  } catch(e){ set('load', 'bad', e.message); return verdict(); }
+
+  const sb = createClient(url, key, { auth:{ persistSession:false } });
+  const keyKind = /^sb_publishable_/.test(key) ? 'publishable (new format)'
+                : /^eyJ/.test(key) ? 'anon JWT (legacy format)' : 'unrecognised shape';
+
+  let uid = null;
+  try {
+    const r = await deadline(sb.auth.signInWithPassword({ email: em, password: pw }), 15000, 'Sign-in');
+    if (r.error) throw new Error(r.error.message);
+    uid = r.data.user.id;
+    set('auth', 'ok', 'Signed in as ' + r.data.user.email + '. Key is ' + keyKind + '.');
+  } catch(e){
+    set('auth', 'bad', e.message + '  — key is ' + keyKind);
+    return verdict();
+  }
+
+  /* --- trips --- */
+  try {
+    const r = await deadline(sb.from('trips').select('id,name').limit(5), 12000, 'Reading trips');
+    if (r.error) throw new Error(r.error.message);
+    set('selTrip', 'ok', (r.data || []).length + ' trip row(s) visible to this account.');
+  } catch(e){ set('selTrip', 'bad', e.message); }
+
+  const testId = crypto.randomUUID();
+  try {
+    const r = await deadline(sb.from('trips').upsert({ id:testId, owner:uid,
+      name:'meridian check', data:{days:[],ideas:[],notes:{}} }, { onConflict:'id' }), 12000, 'Writing a trip');
+    if (r.error) throw new Error(r.error.message);
+    set('insTrip', 'ok', 'Wrote one row.');
+  } catch(e){ set('insTrip', 'bad', e.message); }
+
+  try {
+    await sb.from('trips').upsert({ id:testId, owner:uid, name:'meridian check 2',
+      data:{days:[],ideas:['X'],notes:{}} }, { onConflict:'id' });
+    const r = await sb.from('trips').select('id,name,data').eq('id', testId);
+    const n = (r.data || []).length;
+    if (n === 1) set('dupTrip', 'ok', 'Still one row — the id is a real primary key.');
+    else set('dupTrip', 'bad', n + ' rows share that id. Upsert is not matching on id, which is how '
+      + 'one trip’s contents end up showing under another.');
+  } catch(e){ set('dupTrip', 'bad', e.message); }
+
+  /* --- marks --- */
+  try {
+    const r = await deadline(sb.from('marks').upsert({ user_id:uid, place_id:'__check__', value:'been' },
+      { onConflict:'user_id,place_id' }), 12000, 'Writing a mark');
+    if (r.error) throw new Error(r.error.message);
+    await sb.from('marks').delete().eq('user_id', uid).eq('place_id','__check__');
+    set('marks', 'ok', 'Table exists and accepts a row. Been / want will sync between devices.');
+  } catch(e){
+    set('marks', 'bad', e.message + (/does not exist|schema cache/i.test(e.message)
+      ? '  →  run the MARKS block at the end of supabase/schema.sql' : ''));
+  }
+
+  /* --- invites --- */
+  try {
+    const r = await deadline(sb.from('trip_invites').insert({ trip_id:testId,
+      email:'check@example.com', invited_by:uid }), 12000, 'The invite insert');
+    if (r.error) throw new Error(r.error.message);
+    await sb.from('trip_invites').delete().eq('trip_id', testId);
+    set('inv', 'ok', 'Invites can be written.');
+  } catch(e){ set('inv', 'bad', e.message); }
+
+  /* --- realtime --- */
+  await new Promise(res => {
+    let done = false;
+    const to = setTimeout(() => { if (!done){ done = true;
+      set('rt','warn','No subscription confirmation in 8s. Sync between devices will rely on reload. '
+        + 'Enable Realtime for the trips table in Supabase if you want live updates.'); res(); } }, 8000);
+    try {
+      const ch = sb.channel('meridian-check').on('postgres_changes',
+        { event:'*', schema:'public', table:'trips' }, () => {}).subscribe(st => {
+          if (st === 'SUBSCRIBED' && !done){ done = true; clearTimeout(to);
+            set('rt','ok','Subscribed.'); sb.removeChannel(ch); res(); }
+        });
+    } catch(e){ if (!done){ done = true; clearTimeout(to); set('rt','bad',e.message); res(); } }
+  });
+
+  try { await sb.from('trips').delete().eq('id', testId); } catch(e){}
+  verdict();
+};
+
+function verdict(){
+  const v = $('#verdict');
+  v.hidden = false;
+  v.style.borderColor = notes.length ? 'var(--bad)' : 'var(--ok)';
+  v.textContent = notes.length
+    ? 'Problems found:\n\n' + notes.map(n => '• ' + n).join('\n\n')
+      + '\n\nSend me this list and I will fix the client against it.'
+    : 'Everything the site needs works. If trips or marks still do not appear on another device, '
+      + 'the problem is in the browser rather than the database — tell me and I will look there.';
+}
+</script>
+</body>
+</html>

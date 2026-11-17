@@ -213,16 +213,37 @@ function paintPhoto(el, place){
   if (!el || el.dataset.photoDone) return;
   el.dataset.photoDone = '1';
   el.innerHTML = photoFallback(place);
+
+  /* Ask for the size this box actually is, rather than a fixed 480.
+
+     A hardcoded width fetched a 480px image for a full-width hero
+     (soft) and the same 480px image for a 150px thumbnail — four
+     times the bytes needed, times forty cards on a place page. That
+     is most of why these were slow to appear. loadImage multiplies
+     by the device pixel ratio, so a retina phone still gets a sharp
+     one. */
+  const box = el.getBoundingClientRect();
+  const want = Math.max(160, Math.min(1600, Math.round(box.width || 480)));
+
   placePhoto(place).then(p => {
     if (!p || !p.src) return;
     /* No credit chip over the picture: it covered the thing the
        picture is of. Attribution lives in the page footer, and the
        photographer is on the image itself as a tooltip. */
-    loadImage(p.thumb || p.src, 480, img => {
+    loadImage(p.thumb || p.src, want, img => {
       img.alt = place.name;
       img.title = [p.by, p.lic].filter(Boolean).join(' · ');
+      /* Belt and braces. The container is meant to size this in CSS,
+         but any container that forgot to left the image at its
+         natural size — which is what overflowed the cards and put
+         the captions on top of the pictures. ph-img carries the
+         sizing with the image itself, so it cannot happen again. */
+      img.className = 'ph-img';
+      img.loading = 'lazy';
+      img.decoding = 'async';
       el.innerHTML = '';
       el.appendChild(img);
+      el.classList.add('has-photo');
     });
   });
 }

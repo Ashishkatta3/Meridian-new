@@ -111,6 +111,7 @@ function usMapHTML(opts){
   +       '<button type="button" data-umz="out" aria-label="Zoom out">&minus;</button>'
   +       '<button type="button" data-umz="in" aria-label="Zoom in">+</button>'
   +       '<button type="button" data-umz="reset" aria-label="Reset the map">Reset</button>'
+  +       '<button type="button" data-locate aria-label="Show where I am" title="Show where I am">Locate me</button>'
   +     '</span>'
   +   '</div>'
 
@@ -425,6 +426,7 @@ function wireUsMap(root, opts){
       else zoomAt(k * (z.dataset.umz === 'in' ? 1.6 : 1 / 1.6), W / 2, H / 2);
       return;
     }
+    if (e.target.closest('[data-locate]')) return;      /* handled globally */
     if (e.target.closest('[data-umclose]')) { closeCard(); return; }
 
     /* The card's own buttons come first. They live inside the card,

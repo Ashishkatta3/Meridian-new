@@ -1,6 +1,15 @@
 /* ===========================================================
    CONFIG
 
+   Every value in this file is a BROWSER key: it ships to everyone
+   who loads the page, by design. They are rate-limit identities,
+   not passwords.
+
+   Two keys must never appear here, because they are real secrets:
+   the Supabase service_role key, and the Resend API key. Both live
+   as secrets on the Edge Function instead — see
+   supabase/functions/README.md.
+
    Paste your Supabase project's URL and anon key below and the
    site gains accounts and shared trips. Leave them empty and
    everything still works, stored in this browser only.
@@ -57,7 +66,7 @@ const GAS_FALLBACK = 3.15;   /* a number, not text — it is multiplied */
 /* Recreation.gov — campgrounds and timed-entry permits.
    Free: https://ridb.recreation.gov/.  Note that this one may refuse
    browser requests outright; the panel falls back to a search link. */
-const RIDB_KEY = '68ec6626-5953-4dde-8105-8ee60bf1076c';
+const RIDB_KEY = '68ec6626-5953-4dde-8105-8ee60bf1076c';                /* optional */
 
 /* Mapillary — street-level photographs, used by the photo picker to
    fill places that have nothing else. A client token, safe to ship

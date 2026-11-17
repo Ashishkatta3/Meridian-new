@@ -337,3 +337,105 @@ tab. `tools/download-photos.js` pulls every image into `assets/img/places/` and
 rewrites `photos.js` to local paths, which ends the problem for good and keeps
 the credits intact in `CREDITS.txt`. The hotlinked version is kept as
 `photos.remote.js` so the change is reversible.
+
+---
+
+# What was added in v25
+
+Four things, plus the diagnostics for the two bugs that could not be
+reproduced locally.
+
+## 1. Real invite email
+
+`supabase/functions/send-invite/` is an Edge Function that sends the
+invitation through Resend. It exists because the browser cannot send
+email and must not hold a key that could — `config.js` is downloaded by
+every visitor. The function checks that the caller is signed in and
+**owns** the trip before sending, so a member cannot use it as a relay.
+
+Deployment is three commands, in `supabase/functions/README.md`.
+
+Access and email stay separate on purpose: the row that grants access
+is written first and has already succeeded, so a mail failure reports
+itself without taking the access away. The share dialog says which of
+the two happened rather than implying both.
+
+## 2. Offline
+
+`sw.js` plus `assets/js/core/offline.js`, and `manifest.webmanifest` so
+a phone can install it to the home screen.
+
+The app shell and the whole atlas are cached on first visit, so the
+site opens and every place page reads with no signal at all. Map tiles
+and photographs cache as they are seen. And on a trip's planner page
+there is now **Save for offline**, which walks the route and fetches
+the tiles within a corridor either side of it at four zoom levels —
+state, region, county, town — while you still have bars. Filling the
+bounding box would mean caching most of the western United States; the
+corridor is about 300 tiles for a three-stop trip.
+
+Live data is deliberately never cached. Yesterday's weather, a lifted
+road closure, or an itinerary somebody has since changed are all worse
+than an honest blank.
+
+## 3. The day sheet
+
+`#/sheet/<trip id>`, and the **Day sheet** button on the planner.
+
+A designed document rather than a text dump: a cover with the real
+mileage, lines to write the dates and driver on, then one page per day
+with the route as a strip across the top, numbered stops matching the
+map pins, your notes, and where you are sleeping and eating. A
+**Compact** toggle halves the page count for a long trip. It prints
+black-on-white with the site's navigation gone and each day starting a
+new sheet, so "Print → Save as PDF" gives you something worth putting
+in the glovebox.
+
+The strip opens each day with where the day before ended, greyed out,
+because the drive *into* a day belongs to that day. Without it a day
+headed "251 miles" showed only an 11-mile hop, and the missing 240
+were the overnight leg.
+
+## 4. Share links, with a permission choice
+
+The share dialog now asks the question first: **can view** or **can
+edit**.
+
+- A **view** link opens for anybody who has the URL. No account, no
+  sign-in, nothing to install. They can read the whole plan and print
+  it.
+- An **edit** link does the same, and when the visitor signs in the
+  trip joins their own list and their changes sync like any member's.
+
+One trip can have several links with different roles and labels ("the
+group chat", "mum"), and any of them can be turned off later without
+touching the others. Emailing somebody uses the same mechanism: the
+message carries a link of whichever kind you chose.
+
+The link is a token, not the trip's id — the id is in your own URL bar
+whenever you plan, so using it as the share secret would make every
+trip effectively public to anyone who had seen one URL.
+
+Anonymous reading does not go through the `trips` table. One
+`SECURITY DEFINER` function returns exactly one trip for exactly one
+live token, and returns no owner, no member list and no email
+addresses. That function is the only door the anon key can open.
+
+---
+
+## After pulling this in
+
+1. **Re-run `supabase/schema.sql`, whole.** It is safe to re-run now —
+   the Realtime line that used to abort it is wrapped. This creates
+   `trip_links`, `trip_by_token`, `claim_link`, and the `marks` table
+   that the previous version never reached.
+2. **Fill in `assets/js/core/config.js`.** The keys are blank in this
+   copy; the five that matter are marked `===> FILL IN <===`.
+3. Deploy. On Vercel nothing changes — it is still static files.
+4. Optionally deploy the email function
+   (`supabase/functions/README.md`).
+
+Whenever you change any file, bump `?v=` in `index.html` **and**
+`VERSION` in `sw.js`. They must match, or a phone will hold one new
+file beside one old one — which is exactly what the service worker's
+versioned cache names are there to prevent.

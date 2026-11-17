@@ -272,3 +272,6 @@
   100%{ r: 18; opacity: 0 }
 }
 @media (prefers-reduced-motion: reduce){ .um-me-pulse{ animation: none; opacity: .25; } }
+/* the locate control sits with the zoom buttons */
+.um-zoom [data-locate]{ font-size: 10px; letter-spacing: .06em; }
+.um-zoom [data-locate]:disabled{ opacity: .5; }

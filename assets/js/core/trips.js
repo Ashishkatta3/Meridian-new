@@ -25,6 +25,71 @@ let TRIPS = (function(){
   catch(e){ return []; }
 })();
 
+/* ---------- integrity ----------
+
+   Places added to one trip were turning up in another. Reading the
+   code could not produce it: every read and write is scoped to one
+   trip object. So rather than guess at a cause a third time, this
+   makes the two states that WOULD produce it impossible, and says so
+   in the console when it finds one — if a line from here ever appears
+   in your browser, that is the answer and it names the trips.
+
+   Two states can do it. One: two entries in TRIPS sharing an id, so a
+   write lands on one and a read finds the other. Two: two trips whose
+   `ideas` or `days` is literally the same array object, where pushing
+   to one pushes to both. JSON.parse cannot alias, but a merge, a
+   realtime payload or a hand-edited cache can. */
+function tripsIntegrity(why){
+  const seenId = {}, seenRef = [], fixed = [];
+  const ownArray = (obj, key, label) => {
+    const a = obj[key];
+    if (!Array.isArray(a)){ obj[key] = []; fixed.push(label + '.' + key + ' was not a list'); return; }
+    if (seenRef.indexOf(a) !== -1){
+      obj[key] = JSON.parse(JSON.stringify(a));
+      fixed.push(label + '.' + key + ' shared one array with another trip');
+    } else seenRef.push(a);
+  };
+
+  for (let i = TRIPS.length - 1; i >= 0; i--){
+    const t = TRIPS[i];
+    if (!t || !t.id){ TRIPS.splice(i, 1); fixed.push('a trip with no id'); continue; }
+    if (seenId[t.id]){
+      /* keep whichever was edited last and drop the other */
+      const keep = (seenId[t.id].updated || 0) >= (t.updated || 0) ? seenId[t.id] : t;
+      const drop = keep === t ? seenId[t.id] : t;
+      TRIPS.splice(TRIPS.indexOf(drop), 1);
+      seenId[t.id] = keep;
+      fixed.push('two copies of "' + (t.name || t.id) + '" shared one id');
+      continue;
+    }
+    seenId[t.id] = t;
+
+    ownArray(t, 'ideas', t.name || t.id);
+    ownArray(t, 'days',  t.name || t.id);
+    if (!t.notes || typeof t.notes !== 'object'){ t.notes = {}; }
+
+    /* day ids have to be unique inside a trip, or a stop dragged into
+       one day lands in the other */
+    const dayIds = {};
+    t.days.forEach((d, n) => {
+      if (!d.stops || !Array.isArray(d.stops)) d.stops = [];
+      else ownArray(d, 'stops', (t.name || t.id) + ' ' + (d.label || ('day ' + (n + 1))));
+      if (!d.id || dayIds[d.id]){
+        d.id = 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+        fixed.push('a duplicate day id in "' + (t.name || t.id) + '"');
+      }
+      dayIds[d.id] = 1;
+    });
+  }
+
+  if (fixed.length){
+    console.warn('Meridian repaired the trip list' + (why ? ' after ' + why : '') + ':\n  · '
+      + fixed.join('\n  · ') + '\n  If you are seeing places under the wrong trip, this is why.');
+  }
+  return fixed;
+}
+tripsIntegrity('load');
+
 function tripsSave(){
   /* A last line of defence: if something upstream ever hands us an
      empty list while storage holds trips, keep a copy before writing,
@@ -98,8 +163,25 @@ function tripStopInstance(t, pid){
 function tripAddPlace(id, pid, allowRepeat){
   const t = tripGet(id); if (!t) return;
   if (tripHasPlace(t, pid) && !allowRepeat) return;
+
+  /* Count every other trip before and after. If adding to one trip
+     changes another, this says which two and stops guessing. */
+  const before = TRIPS.map(x => x.ideas.length + x.days.reduce((a, d) => a + d.stops.length, 0));
+
   t.ideas.push(allowRepeat ? tripStopInstance(t, pid) : pid);
-  t.updated = Date.now(); tripsSave();
+  t.updated = Date.now();
+
+  TRIPS.forEach((x, i) => {
+    if (x === t) return;
+    const now = x.ideas.length + x.days.reduce((a, d) => a + d.stops.length, 0);
+    if (now !== before[i]){
+      console.error('Meridian: adding "' + pid + '" to "' + t.name + '" also changed "'
+        + x.name + '" (' + before[i] + ' → ' + now + '). Repairing.');
+      tripsIntegrity('an add that touched two trips');
+    }
+  });
+
+  tripsSave();
 }
 function tripRemovePlace(id, pid){
   const t = tripGet(id); if (!t) return;

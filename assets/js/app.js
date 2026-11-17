@@ -21,16 +21,46 @@
      so it never competes with the first paint, and never asked again
      once answered: the browser remembers the decision, and a refusal
      is final. */
-  (function askLocationOnce(){
-    let asked = '';
-    try { asked = localStorage.getItem('meridian.geo.asked') || ''; } catch(e){}
-    if (asked) return;
+  (function locationOnLoad(){
     if (typeof askHere !== 'function' || !navigator.geolocation) return;
-    setTimeout(() => {
-      try { localStorage.setItem('meridian.geo.asked', '1'); } catch(e){}
-      askHere();            /* resolves to null if declined; nothing breaks */
-    }, 1200);
+    if (typeof hereCached === 'function' && hereCached()) return;   /* already have it */
+
+    const ask = () => askHere();   /* resolves to null if refused; nothing breaks */
+
+    /* Permission is per-browser and permanent once given, but the
+       position itself is only held for the session — so an already
+       granted permission has to be read again on every load, or the
+       dot never comes back. Asking "once, ever" was the bug: after
+       the first visit nothing ever looked again. */
+    if (navigator.permissions && navigator.permissions.query){
+      navigator.permissions.query({ name: 'geolocation' }).then(st => {
+        if (st.state === 'granted') return ask();            /* silent, no prompt */
+        if (st.state === 'denied') return;                   /* respect it */
+        let asked = '';
+        try { asked = localStorage.getItem('meridian.geo.asked') || ''; } catch(e){}
+        if (asked) return;                                   /* dismissed before */
+        setTimeout(() => {
+          try { localStorage.setItem('meridian.geo.asked', '1'); } catch(e){}
+          ask();
+        }, 1200);
+      }).catch(() => setTimeout(ask, 1200));
+    } else {
+      setTimeout(ask, 1200);
+    }
   })();
+
+  /* A way to ask for it by hand, for anyone who said no the first
+     time or cleared the permission. */
+  document.addEventListener('click', e => {
+    const b = e.target.closest && e.target.closest('[data-locate]');
+    if (!b) return;
+    b.disabled = true;
+    try { localStorage.removeItem('meridian.geo.asked'); } catch(e){}
+    Promise.resolve(askHere()).then(h => {
+      b.disabled = false;
+      if (!h && typeof hereRough === 'function') hereRough();
+    });
+  });
 
   const btn = document.getElementById('themebtn');
   if (!btn) return;

@@ -146,3 +146,134 @@ svg{ display: block; }
   font: 500 10.5px/1 var(--mono); letter-spacing: .14em;
   text-transform: uppercase; color: var(--muted); font-style: normal;
 }
+
+
+/* ===========================================================
+   OFFLINE AND UPDATE BARS
+
+   Fixed to the bottom, clear of a phone's home indicator. They are
+   the only two things on the site allowed to interrupt, because both
+   answer a question the reader is already asking: why is this blank,
+   and why has my fix not arrived.
+   =========================================================== */
+.off-bar{
+  position: fixed; z-index: 60;
+  left: 12px; right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; flex-wrap: wrap;
+  margin: 0 auto; max-width: 44rem;
+  padding: 12px 15px;
+  font: 400 13px/1.5 var(--sans);
+  color: var(--ink);
+  background: color-mix(in srgb, var(--panel) 94%, transparent);
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--faint);
+  border-radius: var(--r-m);
+  box-shadow: var(--shadow-lg);
+  animation: offUp .22s ease-out;
+}
+@supports not (backdrop-filter: blur(2px)){ .off-bar{ background: var(--panel); } }
+@keyframes offUp{ from{ opacity:0; transform: translateY(10px); } to{ opacity:1; transform:none; } }
+@media (prefers-reduced-motion: reduce){ .off-bar{ animation: none; } }
+
+.off-bar b{ color: var(--ink); }
+.off-bar.is-new{ border-left-color: var(--want); }
+
+.off-btn{
+  appearance: none; cursor: pointer; flex: 0 0 auto;
+  font: 500 12.5px/1 var(--sans);
+  color: var(--panel); background: var(--ink);
+  border: 1px solid var(--ink); border-radius: 100px;
+  padding: 9px 15px;
+}
+.off-btn:hover{ opacity: .88; }
+
+@media print{ .off-bar{ display: none !important; } }
+
+/* ---------- saving a trip for offline ---------- */
+.off-save{
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  margin-top: 13px; padding: 13px 14px;
+  background: var(--panel-2);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-m);
+}
+.off-save p{ margin: 0; flex: 1 1 16rem; min-width: 0;
+  font: 400 13px/1.55 var(--sans); color: var(--muted); }
+.off-save p b{ color: var(--ink); }
+.off-prog{
+  flex: 1 1 100%;
+  height: 4px; border-radius: 100px; overflow: hidden;
+  background: var(--rule);
+}
+.off-prog i{ display: block; height: 100%; width: 0;
+  background: var(--want); transition: width .25s; }
+
+
+/* ===========================================================
+   PHOTO BOXES
+
+   Every container that carries data-photo gets an <img> dropped into
+   it by photos.js. Several of those containers were styled for a
+   BACKGROUND image and so had no rule for a child <img> at all — the
+   picture then rendered at its natural size, blew out of its box and
+   put the card's caption on top of the photograph.
+
+   These two rules fix that everywhere at once and make it
+   structural: the box owns its shape, the image fills the box.
+   =========================================================== */
+[data-photo], [data-pgphoto], [data-homephoto], [data-spotphoto]{
+  position: relative;
+  overflow: hidden;
+  background: var(--panel-2);
+}
+
+/* The image, wherever it lands. Written on the image itself as well
+   as on the container, so a new container cannot reintroduce the
+   bug by forgetting a rule. */
+.ph-img,
+[data-photo] > img,
+[data-pgphoto] > img,
+[data-homephoto] > img,
+[data-spotphoto] > img{
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  /* Slightly below centre. A landscape photograph of a city or a
+     canyon puts the horizon near the middle, so a centred crop of a
+     short, wide box is mostly sky — which is why several of these
+     cards looked like plain blue rectangles. */
+  object-position: center 58%;
+  /* fade in rather than snapping, since they arrive one at a time */
+  animation: phIn .32s ease-out;
+}
+@keyframes phIn{ from{ opacity: 0 } to{ opacity: 1 } }
+@media (prefers-reduced-motion: reduce){ .ph-img{ animation: none } }
+
+/* A box with no photo yet keeps its height instead of collapsing and
+   then shoving the page down when the picture lands. */
+[data-photo]:empty, [data-spotphoto]:empty{ min-height: 1px; }
+
+/* The painters that set a background rather than inserting an <img>
+   need the same crop rule, or a tall photograph shows its middle
+   third and a wide one shows its sky. */
+[data-pgphoto], [data-homephoto], [data-spotphoto]{
+  background-size: cover;
+  background-position: center 58%;
+  background-repeat: no-repeat;
+}
+
+/* If a caption ever does sit over a photograph, it stays readable:
+   a scrim under the text, only where there is a picture. */
+[data-photo].has-photo::after{
+  content: "";
+  position: absolute; inset: auto 0 0 0; height: 62%;
+  background: linear-gradient(to top, rgba(0,0,0,.55), rgba(0,0,0,0));
+  opacity: 0;
+  pointer-events: none;
+}
+[data-photo].has-photo.is-overlay::after{ opacity: 1; }

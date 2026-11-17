@@ -53,6 +53,7 @@ function renderTrip(id){
     +     '<p class="pg-sub">' + total + (total === 1 ? ' place' : ' places') + ' across ' + t.days.length + (t.days.length === 1 ? ' day' : ' days') + ' · drag a stop to reorder or move it between days</p></div>'
     +   '<div class="pg-acts">'
     +     '<button class="pg-btn" id="shareTrip">Share</button>'
+    +     '<a class="pg-btn" href="#/sheet/' + plEsc(t.id) + '">Day sheet</a>'
     +     '<button class="pg-btn" id="expTxt">Export</button>'
     +   '</div>'
     + '</div>';
@@ -92,6 +93,17 @@ function renderTrip(id){
      +     '<p class="pg-map-note" id="pgMapNote">Pins are numbered in visiting order. '
      +       'Hover a stop and the map goes to it.</p>'
      +   '</aside>'
+     + '</div>';
+
+  /* Saving the trip for offline. Deliberately not automatic: it is
+     tens of megabytes of map imagery, and it should be a thing you
+     chose while you still had signal, not a surprise on your data
+     plan. */
+  h += '<div class="off-save" id="offSave" hidden>'
+     +   '<p><b>Take this trip offline.</b> Saves the map along your route and the '
+     +     'photographs, so the plan still opens where there is no signal.</p>'
+     +   '<button class="pg-btn" id="offGo">Save for offline</button>'
+     +   '<div class="off-prog" id="offProg" hidden><i></i></div>'
      + '</div>';
 
   h += '<p class="pg-note pg-share" id="shareNote"></p>';
@@ -155,13 +167,72 @@ function dayColumn(t, d){
   return h + '</div></div>';
 }
 
+/* ---------- ideas that are in every trip ----------
+
+   An older version had a button that dumped the whole global
+   want-to-go list into whichever trip happened to be open. That
+   button is gone, but what it wrote stays written: the same places
+   sit in the Ideas column of every trip made while it existed, and
+   no amount of fixing the code removes them, because by now they are
+   ordinary saved data.
+
+   So this finds them and offers to take them out. It only counts a
+   place as suspect when it is in Ideas on three or more trips, or in
+   every trip when there are at least two — a place you deliberately
+   added to two trips is not a bug. Day stops are never touched; a
+   place you actually planned to visit stays exactly where it is. */
+function ideasEverywhere(){
+  const trips = tripsAll();
+  if (trips.length < 2) return [];
+  const count = {};
+  trips.forEach(t => {
+    const seen = {};
+    (t.ideas || []).forEach(sid => {
+      const base = typeof stopBase === 'function' ? stopBase(sid) : sid;
+      if (seen[base]) return; seen[base] = 1;
+      count[base] = (count[base] || 0) + 1;
+    });
+  });
+  const bar = Math.min(3, trips.length);
+  return Object.keys(count).filter(k => count[k] >= bar)
+    .map(k => ({ id: k, trips: count[k] }));
+}
+
 function ideasColumn(t){
   let h = '<div class="pg-col pg-col-ideas" data-list="ideas">'
         + '<div class="pg-col-h"><span class="pg-col-t">Ideas</span></div>'
         + '<div class="pg-drop" data-list="ideas">';
+
+  const spread = spreadDismissed() ? [] : ideasEverywhere();
+  if (spread.length){
+    const names = spread.map(s => {
+      const info = stopInfo(s.id);
+      return info ? info.name : s.id;
+    });
+    h += '<div class="pg-spread" id="pgSpread">'
+       + '<p><b>' + names.length + ' place' + (names.length === 1 ? ' is' : 's are')
+       +   ' in the Ideas list of ' + (names.length === 1 ? 'this and ' : '')
+       +   'nearly every trip</b> — ' + plEsc(names.slice(0, 4).join(', '))
+       +   (names.length > 4 ? ' and ' + (names.length - 4) + ' more' : '') + '. '
+       +   'That was an older bug that copied your want-to-go list into whatever trip '
+       +   'was open. Nothing on a day will be touched.</p>'
+       + '<button class="pg-btn pg-btn-s" data-spreadfix="others">Remove from the other trips</button>'
+       + '<button class="pg-btn pg-btn-s" data-spreadfix="all">Remove from all trips</button>'
+       + '<button class="pg-btn pg-btn-s" data-spreadfix="no">Leave them</button>'
+       + '</div>';
+  }
+
   if (!t.ideas.length) h += '<p class="pg-blank">Places with no day yet</p>';
   h += renderGroups(t, t.ideas, 'ideas');
   return h + '</div></div>';
+}
+
+/* dismissed for this browser, so the banner does not nag */
+function spreadDismissed(){
+  try { return localStorage.getItem('meridian.spreadOk') === '1'; } catch(e){ return false; }
+}
+function spreadDismiss(){
+  try { localStorage.setItem('meridian.spreadOk', '1'); } catch(e){}
 }
 
 function renderGroups(t, stops, listId, fromParent){
@@ -300,13 +371,22 @@ function stayPanel(t){
     if (seen[key]) return; seen[key] = 1;
     places.push({ key: key, info: stopInfo(key) || info });
   };
+  /* Day stops only. Ideas are places you have not committed to yet —
+     offering to book a hotel in one is asking the wrong question, and
+     it filled this panel with towns the trip may never reach. They
+     appear here the moment they are dragged onto a day. */
   t.days.forEach(d => d.stops.forEach(push));
-  t.ideas.forEach(push);
 
   if (!places.length){
-    return '<div class="pg-empty"><p>Nothing on the trip yet.</p>'
-         + '<p class="pg-note">Add a stop and this becomes two lists under it: '
-         + 'where you are sleeping and where you are eating.</p></div>';
+    const waiting = (t.ideas || []).length;
+    return '<div class="pg-empty"><p>Nothing on a day yet.</p>'
+         + '<p class="pg-note">' + (waiting
+             ? 'You have ' + waiting + ' place' + (waiting === 1 ? '' : 's')
+               + ' in Ideas. Drag one onto a day and it turns up here with two lists under '
+               + 'it: where you are sleeping and where you are eating.'
+             : 'Add a stop to a day and this becomes two lists under it: '
+               + 'where you are sleeping and where you are eating.')
+         + '</p></div>';
   }
 
   return '<p class="pg-note">Two lists under every stop. Add from the suggestions, '
@@ -451,6 +531,7 @@ function mountPlanner(host, tripIdOrNull){
 
   on('#addDay', () => { tripAddDay(id); repaint(); });
   on('#shareTrip', () => openShare(id));
+  wireOffline(host, id);
   paintShareNote(host, id);
   on('#expTxt', () => exportTrip(tripGet(id)));
   /* This used to drop every want-to-go place straight into whichever
@@ -458,6 +539,30 @@ function mountPlanner(host, tripIdOrNull){
      appearing in another — the want list is global, the trip is not.
      Now it opens a chooser and nothing lands without being ticked. */
   on('#addWant', () => openWantPicker(id, repaint));
+
+  /* clearing out ideas an old bug copied into every trip */
+  host.querySelectorAll('[data-spreadfix]').forEach(b => b.onclick = () => {
+    const mode = b.dataset.spreadfix;
+    if (mode === 'no'){ spreadDismiss(); repaint(); return; }
+    const spread = ideasEverywhere().map(s => s.id);
+    let removed = 0;
+    tripsAll().forEach(trip => {
+      if (mode === 'others' && trip.id === id) return;
+      spread.forEach(pid => {
+        const before = trip.ideas.length;
+        /* match repeats of the same place too (CO-denver@2) */
+        trip.ideas = trip.ideas.filter(sid =>
+          (typeof stopBase === 'function' ? stopBase(sid) : sid) !== pid);
+        removed += before - trip.ideas.length;
+      });
+      trip.updated = Date.now();
+    });
+    tripsSave();
+    spreadDismiss();
+    repaint();
+    if (typeof toast === 'function')
+      toast(removed + ' idea' + (removed === 1 ? '' : 's') + ' removed. Days were not touched.');
+  });
 
   host.querySelectorAll('[data-rm]').forEach(b => b.onclick = () => { tripRemovePlace(id, b.dataset.rm); repaint(); });
   host.querySelectorAll('[data-delday]').forEach(b => b.onclick = () => { tripRemoveDay(id, b.dataset.delday); repaint(); });
@@ -739,6 +844,54 @@ function wireDrag(host, id, repaint){
   }
 }
 
+/* ---------- take it offline ----------
+
+   Only shown when the browser can actually do it, because a button
+   that explains why it cannot work is worse than no button. */
+function wireOffline(host, id){
+  const box = host.querySelector('#offSave');
+  if (!box) return;
+  if (typeof offlineReady !== 'function' || !offlineReady()) return;
+  box.hidden = false;
+
+  const btn = host.querySelector('#offGo');
+  const prog = host.querySelector('#offProg');
+  const bar = prog ? prog.querySelector('i') : null;
+  const note = box.querySelector('p');
+
+  btn.onclick = async () => {
+    const t = tripGet(id); if (!t) return;
+    const stops = t.days.reduce((a, d) => a + d.stops.length, 0);
+    if (!stops){
+      note.innerHTML = '<b>Nothing to save yet.</b> Add a stop or two first — '
+        + 'it saves the map along the route, so it needs a route.';
+      return;
+    }
+    btn.disabled = true; btn.textContent = 'Saving…';
+    if (prog) prog.hidden = false;
+
+    const r = await offlineSave(t, p => {
+      if (bar && p.total) bar.style.width = Math.round((p.done + p.failed) / p.total * 100) + '%';
+    });
+
+    btn.disabled = false;
+    if (r.error){
+      btn.textContent = 'Save for offline';
+      if (prog) prog.hidden = true;
+      note.innerHTML = '<b>Could not save.</b> ' + plEsc(r.error);
+      return;
+    }
+    if (bar) bar.style.width = '100%';
+    btn.textContent = 'Saved';
+    note.innerHTML = r.slow
+      ? '<b>Still saving in the background.</b> It will carry on while you use the site; '
+        + 'come back in a minute and it will be done.'
+      : '<b>Ready for the road.</b> ' + r.saved.toLocaleString() + ' map tiles and photographs saved'
+        + (r.failed ? ', ' + r.failed + ' refused by the provider' : '')
+        + '. Open this trip with no signal and it will be here.';
+  };
+}
+
 /* ---------- export ---------- */
 function exportTrip(t){
   if (!t) return;
@@ -783,52 +936,232 @@ function paintShareNote(host, id){
   }
 }
 
+/* ---------- the share dialog ----------
+
+   Two ways to share, because they answer different questions.
+
+   A link is for "send them the plan": it opens for anybody who has
+   the URL, with no account and nothing to install. An email invite is
+   for "bring them onto the trip": it names a person and reaches them.
+
+   Both carry the same choice first — can they look, or can they
+   change it — because that is the decision being made, and burying it
+   in a dropdown after the fact gets it wrong by default. */
 function openShare(id){
   const t = tripGet(id); if (!t) return;
   const online = (typeof cloudActive === 'function') && cloudActive();
   const wrap = document.createElement('div');
   wrap.className = 'pk-wrap';
-  wrap.innerHTML = '<div class="pk" role="dialog" aria-modal="true" aria-label="Share trip">'
+
+  const roleRow = '<div class="sh-roles" role="radiogroup" aria-label="What they can do">'
+    + '<label class="sh-role is-on"><input type="radio" name="shRole" value="viewer" checked>'
+    +   '<b>Can view</b><span>Reads the plan. Cannot change anything. '
+    +   'No account needed — the link just opens.</span></label>'
+    + '<label class="sh-role"><input type="radio" name="shRole" value="editor">'
+    +   '<b>Can edit</b><span>Moves stops, adds places, leaves notes. '
+    +   'They sign in once and the trip joins their own list.</span></label>'
+    + '</div>';
+
+  wrap.innerHTML = '<div class="pk pk-wide" role="dialog" aria-modal="true" aria-label="Share trip">'
     + '<button class="pk-x" data-close aria-label="Close">&times;</button>'
     + '<span class="lab">Share</span><h3>' + plEsc(t.name) + '</h3>'
     + (online
-        ? '<p class="pk-sub">Invite by email. They see the trip as soon as they sign in with that address.</p>'
-          + '<div class="pk-new"><input id="shEmail" type="email" placeholder="their@email.com" autocomplete="off">'
-          + '<button class="pg-btn pg-btn-go" data-invite>Invite</button></div>'
-          + '<div id="shPeople" class="pk-people"></div>'
+        ? roleRow
+
+          /* ---- a link ---- */
+          + '<div class="sh-block">'
+          +   '<h4>Send a link</h4>'
+          +   '<p class="pk-sub">Anyone who has it can open the trip. Make as many as you like '
+          +     'and switch any of them off later.</p>'
+          +   '<div class="pk-new">'
+          +     '<input id="shLabel" type="text" placeholder="What is it for? (the group chat, mum…)" autocomplete="off">'
+          +     '<button class="pg-btn pg-btn-go" data-mklink>Make a link</button>'
+          +   '</div>'
+          +   '<div id="shLinks" class="sh-links"></div>'
+          + '</div>'
+
+          /* ---- an email ---- */
+          + '<div class="sh-block">'
+          +   '<h4>Email somebody</h4>'
+          +   '<p class="pk-sub">They get a message with the link in it, and the access is '
+          +     'granted whether or not the email goes through.</p>'
+          +   '<div class="pk-new">'
+          +     '<input id="shEmail" type="email" placeholder="their@email.com" autocomplete="off">'
+          +     '<button class="pg-btn" data-invite>Send</button>'
+          +   '</div>'
+          +   '<input id="shNote" class="sh-note-in" type="text" maxlength="400" '
+          +     'placeholder="A line to go with it (optional)" autocomplete="off">'
+          /* The route that needs no server, no sending domain and no
+             deployment, and therefore works today: grant the access,
+             then hand the finished message to whatever mail app they
+             already use. */
+          +   '<p class="pk-sub sh-or">or <button class="pg-btn pg-btn-s" data-mailto>'
+          +     'write it in your own email app</button><br>Grants the access, then opens your '
+          +     'mail with the link already in it. No sending domain needed.</p>'
+          +   '<div id="shPeople" class="pk-people"></div>'
+          + '</div>'
+
         : '<p class="pk-sub">Not available yet</p>'
-          + '<p class="pg-note">Sharing needs an account, so the other person has something to sign in to. '
-          + 'Set that up on the <a href="#/account">Account</a> page — it takes a few minutes and is free. '
-          + 'Until then, <b>Export</b> gives you the whole itinerary as text you can send.</p>')
+          + '<p class="pg-note">Sharing needs a database, so there is something for a link to '
+          + 'point at. Set that up on the <a href="#/account">Account</a> page — it is free. '
+          + 'Until then, <b>Day sheet</b> gives you the whole itinerary as a page you can '
+          + 'print or save as a PDF and send.</p>')
     + '<p class="ac-msg" id="shMsg"></p></div>';
   document.body.appendChild(wrap);
 
+  const role = () => {
+    const r = wrap.querySelector('input[name="shRole"]:checked');
+    return r ? r.value : 'viewer';
+  };
+  const say = (text, kind) => {
+    const m = wrap.querySelector('#shMsg');
+    m.textContent = text;
+    m.className = 'ac-msg' + (kind ? ' is-' + kind : '');
+  };
+
+  /* light up whichever role is chosen */
+  wrap.querySelectorAll('input[name="shRole"]').forEach(r => r.addEventListener('change', () => {
+    wrap.querySelectorAll('.sh-role').forEach(l =>
+      l.classList.toggle('is-on', l.contains(wrap.querySelector('input[name="shRole"]:checked'))));
+  }));
+
   const close = () => { if (wrap.parentNode) wrap.parentNode.removeChild(wrap); };
+
   wrap.addEventListener('click', async e => {
     if (e.target === wrap || e.target.closest('[data-close]')) return close();
+
+    /* ---- make a link ---- */
+    const mk = e.target.closest('[data-mklink]');
+    if (mk){
+      mk.disabled = true; say('Making the link…');
+      const r = await linkCreate(id, role(), wrap.querySelector('#shLabel').value);
+      mk.disabled = false;
+      if (r.error) return say(r.error, 'bad');
+      wrap.querySelector('#shLabel').value = '';
+      say(role() === 'editor'
+        ? 'Link made. Anyone who opens it can edit the trip once they sign in.'
+        : 'Link made. Anyone who opens it can read the trip, with no account.', 'ok');
+      listLinks();
+      return;
+    }
+
+    /* ---- copy one ---- */
+    const cp = e.target.closest('[data-copy]');
+    if (cp){
+      const url = cp.dataset.copy;
+      try { await navigator.clipboard.writeText(url); say('Copied.', 'ok'); }
+      catch(err){
+        /* clipboard refused — show it instead of claiming success */
+        const box = wrap.querySelector('[data-show="' + CSS.escape(url) + '"]');
+        if (box){ box.hidden = false; box.select && box.select(); }
+        say('Could not reach the clipboard, so here is the link to copy by hand.', 'bad');
+      }
+      return;
+    }
+
+    /* ---- turn one off ---- */
+    const rv = e.target.closest('[data-revoke]');
+    if (rv){
+      rv.disabled = true;
+      const r = await linkRevoke(rv.dataset.revoke);
+      say(r.error || 'That link no longer opens.', r.error ? 'bad' : 'ok');
+      listLinks();
+      return;
+    }
+
+    /* ---- hand it to their own mail app ---- */
+    const mt = e.target.closest('[data-mailto]');
+    if (mt){
+      const em = wrap.querySelector('#shEmail').value.trim();
+      const note = wrap.querySelector('#shNote').value.trim();
+      mt.disabled = true;
+      say('Granting access and making the link…');
+
+      /* grant first, so the link in the message actually opens */
+      let r = null;
+      if (em){
+        try { r = await tripInvite(id, em, role(), note); } catch(err){ r = { error: String(err.message || err) }; }
+        if (r && r.error){ mt.disabled = false; return say(r.error, 'bad'); }
+      }
+      const made = await linkCreate(id, role(), em ? 'emailed to ' + em : 'sent by hand');
+      mt.disabled = false;
+      if (made.error) return say(made.error, 'bad');
+
+      const t2 = tripGet(id);
+      const subject = 'Our trip: ' + (t2 ? t2.name : 'a road trip');
+      const lines = [
+        (note ? note + '\n' : ''),
+        'Here is the plan:',
+        made.url,
+        '',
+        role() === 'editor'
+          ? 'You can change it too — sign in and it joins your own trips.'
+          : 'No account needed, the link just opens.',
+        '',
+        '— sent from Meridian'
+      ].filter(x => x !== null).join('\n');
+
+      location.href = 'mailto:' + encodeURIComponent(em)
+        + '?subject=' + encodeURIComponent(subject)
+        + '&body=' + encodeURIComponent(lines);
+
+      say('Access granted and your mail app should be opening. If nothing happened, the link '
+        + 'is in the list above — copy it and send it however you like.', 'ok');
+      listLinks(); listPeople();
+      return;
+    }
+
+    /* ---- email ---- */
     const inv = e.target.closest('[data-invite]');
     if (inv){
-      /* Always say something. This button could previously appear to
-         do nothing at all: an exception inside the handler left the
-         promise rejected and no message was ever written. */
       const em = wrap.querySelector('#shEmail').value;
-      const m = wrap.querySelector('#shMsg');
+      const note = wrap.querySelector('#shNote').value;
       inv.disabled = true;
-      m.className = 'ac-msg'; m.textContent = 'Sending the invite…';
+      say('Granting access, then sending the email…');
       let r;
-      try {
-        r = await tripInvite(id, em);
-      } catch(err){
-        r = { error: 'Could not send that invite — ' + (err && err.message ? err.message : err) };
-      }
+      try { r = await tripInvite(id, em, role(), note); }
+      catch(err){ r = { error: 'Could not do that — ' + (err && err.message ? err.message : err) }; }
       inv.disabled = false;
-      if (!r) r = { error: 'No answer from the database. Check the Supabase keys on the Account page.' };
-      m.textContent = r.error || ('Invited ' + em + '.');
-      m.className = 'ac-msg ' + (r.error ? 'is-bad' : 'is-ok');
-      if (!r.error){ wrap.querySelector('#shEmail').value = ''; listPeople(); }
+
+      if (!r) r = { error: 'No answer from the database. Check the keys on the Account page.' };
+      if (r.error) return say(r.error, 'bad');
+
+      /* Access and email are separate, and the message says which of
+         the two actually happened rather than implying both. */
+      const m = r.mail || {};
+      if (m.sent){
+        say(em + ' has been emailed the link, and has ' + (role() === 'editor'
+          ? 'editing access.' : 'view access.'), 'ok');
+      } else if (m.why === 'not-deployed' || m.why === 'no-function'){
+        say(em + ' now has access, but no email was sent — the send-invite function is not '
+          + 'deployed yet. The link is in the list above; send it to them yourself. '
+          + '(supabase/functions/README.md has the three commands.)', 'bad');
+      } else {
+        say(em + ' now has access, but the email did not go: '
+          + (m.detail || 'the provider refused it') + '. The link is in the list above.', 'bad');
+      }
+      wrap.querySelector('#shEmail').value = '';
+      wrap.querySelector('#shNote').value = '';
+      listLinks(); listPeople();
     }
   });
-  if (online) listPeople();
+
+  if (online){ listLinks(); listPeople(); }
+
+  async function listLinks(){
+    const box = wrap.querySelector('#shLinks'); if (!box) return;
+    const rows = await linkList(id);
+    if (!rows.length){ box.innerHTML = ''; return; }
+    box.innerHTML = '<b>Live links</b>' + rows.map(r =>
+        '<div class="sh-link">'
+      +   '<span class="sh-link-r' + (r.role === 'editor' ? ' is-edit' : '') + '">'
+      +     (r.role === 'editor' ? 'can edit' : 'can view') + '</span>'
+      +   '<span class="sh-link-l">' + plEsc(r.label || 'Untitled link') + '</span>'
+      +   '<button class="pg-btn pg-btn-s" data-copy="' + plEsc(r.url) + '">Copy</button>'
+      +   '<button class="pg-btn pg-btn-s" data-revoke="' + plEsc(r.token) + '">Turn off</button>'
+      +   '<input class="sh-link-raw" data-show="' + plEsc(r.url) + '" value="' + plEsc(r.url) + '" readonly hidden>'
+      + '</div>').join('');
+  }
 
   function listPeople(){
     tripPeople(id).then(p => {

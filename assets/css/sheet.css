@@ -1,0 +1,355 @@
+/* ===========================================================
+   THE DAY SHEET
+
+   A document, not a web page. It reads on screen and it reads on
+   paper, and the paper version is the one that matters: this is the
+   thing that sits on the passenger seat where there is no signal.
+
+   Two ideas carry it. First, a strong vertical rhythm — the day is a
+   heading, the route is a strip, the stops are a numbered column —
+   so you can find where you are at a glance while driving. Second,
+   everything is sized in points for print and rem for screen, with
+   one page per day, so a day never breaks across a fold.
+   =========================================================== */
+
+/* ---------- the bar above the sheet (screen only) ---------- */
+.sh-bar{
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap;
+  padding: 20px 0 14px;
+}
+.sh-bar-r{ display: flex; gap: 8px; }
+
+.sh-wait{ padding: 60px 0; }
+
+/* ---------- the page ---------- */
+.sh-page{ padding-bottom: 60px; }
+
+.sh{
+  background: var(--panel);
+  border: 1px solid var(--rule);
+  border-radius: var(--r-l);
+  padding: 38px 40px 30px;
+  max-width: 50rem;
+  margin: 0 auto;
+}
+
+/* ---------- cover ---------- */
+.sh-top{
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 24px; flex-wrap: wrap;
+  padding-bottom: 18px;
+  border-bottom: 2px solid var(--ink);
+}
+.sh-top h1{
+  font: 400 clamp(28px, 5vw, 42px)/1.05 var(--serif);
+  color: var(--ink);
+  margin: 6px 0 0;
+  text-wrap: balance;
+}
+.sh-top-s{
+  font: 500 11px/1.5 var(--mono); letter-spacing: .1em; text-transform: uppercase;
+  color: var(--muted); margin: 8px 0 0;
+}
+.sh-top-r{ display: flex; gap: 22px; }
+.sh-fig{ text-align: right; }
+.sh-fig b{ display: block; font: 400 26px/1 var(--serif); color: var(--ink); }
+.sh-fig span{
+  font: 500 9.5px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ---------- the lines you write on ---------- */
+.sh-fill{
+  display: flex; gap: 26px; flex-wrap: wrap;
+  padding: 15px 0 4px;
+  border-bottom: 1px solid var(--rule);
+}
+.sh-fill label{
+  flex: 1 1 11rem; min-width: 0;
+  display: flex; align-items: baseline; gap: 8px;
+  font: 500 9.5px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase;
+  color: var(--muted);
+}
+.sh-rule{ flex: 1; border-bottom: 1px dotted var(--faint); height: 1.1em; }
+
+/* ---------- a day ---------- */
+.sh-day{ padding-top: 26px; }
+
+.sh-day-h{
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--ink);
+}
+.sh-day-n{
+  font: 600 13px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase;
+  color: var(--ink);
+}
+/* a blank to write the actual date on */
+.sh-day-date{
+  display: inline-block; width: 8.5rem; margin-left: 12px;
+  border-bottom: 1px dotted var(--faint); height: 1em;
+}
+.sh-day-cost{
+  font: 500 10.5px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase;
+  color: var(--muted);
+}
+.sh-day-cost b{ color: var(--ink); font-weight: 600; }
+.sh-day-cost i{ padding: 0 7px; font-style: normal; color: var(--faint); }
+
+.sh-empty{ font: 400 14px/1.6 var(--sans); color: var(--muted); padding: 12px 0; }
+
+/* ---------- the route strip ----------
+   The shape of the day in one line: towns with the cost of each
+   hop between them. On paper this is the bit you glance at. */
+.sh-strip{
+  display: flex; align-items: center; flex-wrap: wrap;
+  gap: 0 4px; margin: 13px 0 0; padding: 0; list-style: none;
+}
+.sh-strip li{ display: flex; align-items: center; gap: 4px; }
+.sh-strip-stop{
+  font: 500 11.5px/1 var(--mono); letter-spacing: .04em;
+  color: var(--ink);
+  background: var(--panel-2);
+  border: 1px solid var(--rule);
+  border-radius: 100px;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+.sh-strip-stop.is-from{
+  color: var(--muted);
+  background: transparent;
+  border-style: dashed;
+}
+/* "you arrive from here" — it belongs to yesterday, so it is drawn
+   as context rather than as a stop you are making today */
+.sh-strip-stop.is-from::before{
+  content: "from ";
+  color: var(--faint);
+}
+
+.sh-strip-leg{
+  position: relative;
+  font: 500 9px/1 var(--mono); letter-spacing: .06em;
+  color: var(--muted);
+  padding: 0 13px 0 15px;
+  white-space: nowrap;
+}
+/* the road between two towns */
+.sh-strip-leg::before{
+  content: ""; position: absolute; left: 0; right: 0; top: 50%;
+  border-top: 1px dashed var(--faint); z-index: -1;
+}
+
+/* ---------- the stops ---------- */
+.sh-stops{ padding-top: 6px; }
+
+.sh-stop{
+  display: flex; gap: 14px;
+  padding: 16px 0 15px;
+  border-bottom: 1px solid var(--rule-soft, var(--rule));
+  break-inside: avoid;
+}
+.sh-stop:last-child{ border-bottom: 0; }
+
+/* the number matches the pin on the planner's map */
+.sh-stop-n{
+  flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; margin-top: 2px;
+  font: 600 12px/1 var(--mono);
+  color: var(--panel); background: var(--ink);
+  border-radius: 50%;
+}
+.sh-stop-b{ min-width: 0; flex: 1; }
+.sh-stop-b h3{
+  font: 600 17px/1.25 var(--sans); color: var(--ink); margin: 0;
+}
+.sh-stop-b h3 em{
+  font: 500 10px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase;
+  color: var(--muted); font-style: normal;
+}
+.sh-stop-s{
+  font: 500 10px/1.4 var(--mono); letter-spacing: .11em; text-transform: uppercase;
+  color: var(--muted); margin: 4px 0 0;
+}
+
+/* ---------- things to do, as a checklist ---------- */
+.sh-todo{ list-style: none; margin: 11px 0 0; padding: 0; }
+.sh-todo li{
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 10px;
+  padding: 5px 0;
+  break-inside: avoid;
+}
+.sh-todo li b{
+  grid-column: 2;
+  font: 500 14px/1.45 var(--sans); color: var(--ink);
+}
+.sh-todo li span:not(.sh-box){
+  grid-column: 2;
+  font: 400 12.5px/1.5 var(--sans); color: var(--muted);
+}
+.sh-todo li .sh-note{ color: var(--ink-2); font-style: italic; }
+
+/* a real tick box, because this gets ticked in pen */
+.sh-box{
+  grid-row: 1 / span 2; grid-column: 1;
+  width: 13px; height: 13px; margin-top: 4px;
+  border: 1.4px solid var(--faint);
+  border-radius: 3px;
+}
+
+.sh-two{ columns: 2; column-gap: 32px; }
+.sh-two li{ break-inside: avoid; }
+
+/* ---------- notes people left ---------- */
+.sh-notes{
+  list-style: none; margin: 11px 0 0; padding: 9px 12px;
+  background: var(--panel-2);
+  border-left: 2px solid var(--want);
+  border-radius: 0 var(--r-s) var(--r-s) 0;
+}
+.sh-notes li{ font: 400 13px/1.55 var(--sans); color: var(--ink-2); padding: 2px 0; }
+.sh-notes li b{
+  font: 500 9.5px/1 var(--mono); letter-spacing: .1em; text-transform: uppercase;
+  color: var(--muted); padding-right: 7px;
+}
+
+/* ---------- sleep and eat ---------- */
+.sh-se{ margin-top: 11px; }
+.sh-se p{ font: 400 13px/1.6 var(--sans); color: var(--ink-2); margin: 2px 0; }
+.sh-se-k{
+  display: inline-block; min-width: 3.6rem;
+  font: 500 9.5px/1 var(--mono); letter-spacing: .11em; text-transform: uppercase;
+  color: var(--muted);
+}
+.sh-se i{ font-style: normal; color: var(--muted); }
+
+/* ---------- back page ---------- */
+.sh-ideas .sh-day-n, .sh-check .sh-day-n{ color: var(--muted); }
+
+.sh-foot{
+  display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap;
+  margin-top: 30px; padding-top: 13px;
+  border-top: 1px solid var(--rule);
+  font: 500 9.5px/1.5 var(--mono); letter-spacing: .07em;
+  color: var(--muted);
+}
+
+/* ---------- compact ----------
+   Same document, fewer pages. For a long trip the roomy version runs
+   to a dozen sheets and nobody wants that in a glovebox. */
+.sh-page.is-dense .sh{ padding: 26px 28px 20px; }
+.sh-page.is-dense .sh-day{ padding-top: 17px; }
+.sh-page.is-dense .sh-stop{ padding: 9px 0 8px; gap: 10px; }
+.sh-page.is-dense .sh-stop-n{ width: 21px; height: 21px; font-size: 10.5px; }
+.sh-page.is-dense .sh-stop-b h3{ font-size: 14.5px; }
+.sh-page.is-dense .sh-todo li{ padding: 2px 0; }
+.sh-page.is-dense .sh-todo li b{ font-size: 12.5px; }
+.sh-page.is-dense .sh-top h1{ font-size: clamp(22px, 4vw, 30px); }
+.sh-page.is-dense .sh-fill{ display: none; }
+.sh-page.is-dense .sh-day{ break-before: auto; }
+
+/* ---------- the banner on a shared link ---------- */
+.sh-ban{
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap;
+  margin: 20px 0 0; padding: 14px 16px;
+  background: var(--panel-2);
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--faint);
+  border-radius: var(--r-m);
+  font: 400 13.5px/1.6 var(--sans); color: var(--ink-2);
+}
+.sh-ban b{ color: var(--ink); }
+.sh-ban.is-edit{ border-left-color: var(--want); }
+
+/* ===========================================================
+   PRINT
+
+   Everything that belongs to the website goes away, the sheet loses
+   its card and fills the paper, colour becomes ink, and each day
+   starts its own page.
+   =========================================================== */
+@media print{
+  /* colour tokens, forced light: a dark-mode print is a wasted
+     cartridge and an unreadable sheet */
+  :root, :root[data-theme="dark"]{
+    --ground: #fff; --panel: #fff; --panel-2: #fff;
+    --ink: #000; --ink-2: #1a1a1a; --muted: #555; --faint: #999;
+    --rule: #bbb; --rule-soft: #ddd; --want: #000; --been: #000;
+    color-scheme: light;
+  }
+
+  /* the site itself */
+  .top, .foot, .sh-bar, .sh-ban, .hero2, #map, #home-sections,
+  .navsearch, .tbtn, .pg-acts, .um-hint{ display: none !important; }
+
+  html, body{ background: #fff !important; color: #000 !important; }
+  body{ margin: 0; }
+  .wrap{ max-width: none; padding: 0; }
+
+  @page{ size: A4 portrait; margin: 14mm 13mm 12mm; }
+
+  .sh-page{ padding: 0; }
+  .sh{
+    border: 0; border-radius: 0; padding: 0; max-width: none;
+    background: #fff;
+  }
+
+  /* typography in points, because paper has no pixels */
+  .sh-top h1{ font-size: 26pt; }
+  .sh-top-s, .sh-day-cost{ font-size: 7.5pt; }
+  .sh-fig b{ font-size: 16pt; }
+  .sh-fig span{ font-size: 6.5pt; }
+  .sh-day-n{ font-size: 9.5pt; }
+  .sh-stop-b h3{ font-size: 12pt; }
+  .sh-stop-s{ font-size: 7pt; }
+  .sh-strip-stop{ font-size: 8pt; }
+  .sh-strip-stop.is-from{
+  color: var(--muted);
+  background: transparent;
+  border-style: dashed;
+}
+/* "you arrive from here" — it belongs to yesterday, so it is drawn
+   as context rather than as a stop you are making today */
+.sh-strip-stop.is-from::before{
+  content: "from ";
+  color: var(--faint);
+}
+
+.sh-strip-leg{ font-size: 6.5pt; }
+  .sh-todo li b{ font-size: 10pt; }
+  .sh-todo li span:not(.sh-box){ font-size: 9pt; }
+  .sh-notes li{ font-size: 9pt; }
+  .sh-se p{ font-size: 9pt; }
+  .sh-foot{ font-size: 7pt; }
+
+  /* one day per sheet, and never a heading orphaned at the foot */
+  .sh-day{ break-before: page; padding-top: 0; }
+  .sh-day:first-of-type{ break-before: avoid; }
+  .sh-day-h{ break-after: avoid; }
+  .sh-stop, .sh-todo li, .sh-notes{ break-inside: avoid; }
+
+  /* the numbered discs have to survive a printer that drops
+     backgrounds, so give them ink of their own */
+  .sh-stop-n{
+    background: #000 !important; color: #fff !important;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .sh-box{ border-color: #666; }
+  .sh-notes{ background: #fff; border-left: 2px solid #000; padding-left: 10px; }
+
+  /* a URL is useless in print unless it is written out */
+  .sh a[href^="http"]::after{
+    content: " (" attr(href) ")";
+    font: 400 7pt/1 var(--mono); color: #555;
+  }
+  .sh a{ color: #000; text-decoration: none; }
+
+  /* the running foot repeats, so a loose page is identifiable */
+  .sh-foot{ break-before: avoid; }
+}
