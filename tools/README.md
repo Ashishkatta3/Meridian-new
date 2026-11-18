@@ -206,3 +206,155 @@ Two files land in `tools/out/` rather than going straight in:
 - `coord-check.txt` — places whose atlas coordinates are more than
   three miles from Wikidata's. Usually the atlas is right and Wikidata
   is pointing at a visitor centre, but it is worth a look.
+
+
+---
+
+## photos-hq.js — better photographs, hosted by you
+
+The atlas started on Wikimedia Commons, which is free and correct and
+frequently 800 pixels wide, a map of the county, or the town seal.
+This replaces the weak ones with real photography from Pexels and
+Unsplash, **downloads them**, and points the site at your own copies.
+
+```bash
+node tools/photos-hq.js --audit                      # what is wrong, nothing downloaded
+node tools/photos-hq.js --run --pexels=KEY           # fix it, in priority order
+node tools/photos-hq.js --run --pexels=KEY --tier=1  # just the state faces
+```
+
+Two free keys: [Pexels](https://www.pexels.com/api/) (200 requests an
+hour) and optionally [Unsplash](https://unsplash.com/developers) (50 an
+hour on a demo key, 5000 once approved). **Pexels alone is enough** —
+Unsplash's demo limit is the slowest part of the whole job. Keys are
+passed as arguments or read from `PEXELS_KEY` / `UNSPLASH_KEY` in the
+environment; they are build-time only and never reach `config.js`,
+because anything in there is downloaded by every visitor.
+
+### The order it works in
+
+1. **State faces.** A state has no photograph of its own — the state
+   card borrows the picture of its best-known place. So about fifty
+   carefully chosen places fix all fifty state cards. Highest leverage
+   in the job, which is why it is first.
+2. **Major cities** — the ones everybody has heard of.
+3. **National parks, monuments and recreation areas.**
+4. The remaining cities.
+5. Everything else.
+
+### Two things it refuses to do
+
+**It will not use a photo that does not name the place.** Stock sites
+are searched by name, not by coordinates, so a result is a picture
+somebody *tagged* — perfect for a city skyline, and for an obscure
+state park quite possibly a generic forest. If the place's distinctive
+words never appear in the description, the candidate is thrown away
+rather than marked down. A missing photograph is honest; a confidently
+wrong one is not.
+
+**It will not swap one low-resolution photo for another.** The point of
+the run is resolution, so anything under `--min-width` (default 1400)
+is rejected outright and the place keeps what it had.
+
+Both mean some places are reported as "left alone". That is the tool
+working, not failing.
+
+### What it writes
+
+- `assets/photos/<id>-1600.jpg` and `<id>-640.jpg`, fetched at exactly
+  those widths straight from the provider's CDN — so there is no image
+  processing here, nothing to install, no `sharp`.
+- `assets/js/data/photos.js`, repointed at your own files.
+- `PHOTO-CREDITS.md`, naming every photographer.
+
+The runtime picks the size by the box it is drawing: a card asks for
+640, a hero asks for 1600. Previously every card downloaded a
+hero-sized image, which is most of why they were slow.
+
+### Resolution, speed and the law
+
+It is **resumable** — anything already in `assets/photos/` is skipped,
+so stopping it and running again tomorrow loses nothing. That matters
+on an Unsplash demo key.
+
+Both licences allow download, self-hosting, modification and commercial
+use with no permission needed. Pexels requires no attribution; Unsplash
+does not strictly either, though its API terms ask for the photographer
+and a link back — which is what `PHOTO-CREDITS.md` and the stored
+`by`/`u` fields are for. Neither licence clears a trademark or a
+recognisable face inside the frame; irrelevant for skylines and
+landscapes, worth knowing before putting one on a T-shirt.
+
+Afterwards bump `?v=` in `index.html` **and** `VERSION` in `sw.js`.
+
+---
+
+## photos-import.js — photographs you downloaded by hand
+
+Pexels has paused new API keys, so if you are downloading pictures
+yourself this files them for you.
+
+```bash
+node tools/photos-import.js --from=~/Downloads/meridian-photos           # shows the plan
+node tools/photos-import.js --from=~/Downloads/meridian-photos --apply   # does it
+```
+
+Name each file after the place. The matcher is forgiving — `denver.jpg`,
+`grand canyon.jpg`, `Zion-National-Park.jpeg` and
+`new york city skyline.png` all land correctly, and junk words like
+`pexels-photo-1234567` are ignored rather than guessed at.
+
+**It refuses to guess.** `portland.jpg` is reported as ambiguous
+between Oregon and Maine rather than silently picking one. The fix is
+to rename the file to the place id — `node tools/photos-import.js --ids`
+prints all 402 — or add the state: `portland or.jpg` resolves cleanly.
+
+It reads the real pixel size out of the file header, with no image
+library required, and flags anything under `--min-width` (default 1400)
+since resolution is the point of the exercise.
+
+Resizing uses `sharp` if you have it, ImageMagick if you do not, and if
+you have neither it copies the file into both slots and says so. A
+source smaller than 1600px is never upscaled — a 900px picture stays
+900px rather than pretending to be a hero.
+
+### Credit
+
+Optional `credits.csv` in the same folder:
+
+```csv
+file,photographer,source,url
+denver.jpg,Jane Doe,Unsplash,https://unsplash.com/photos/xyz
+"grand canyon.jpg","Smith, John",Pexels,https://pexels.com/p/1
+```
+
+Anything without a line is filed as "Photographer unknown" — legal for
+all three stock sites, none of which require attribution — and
+`PHOTO-CREDITS.md` lists the gaps so you can fill them in later.
+
+---
+
+## Where to get photographs now that Pexels is closed
+
+| Source | Key | Resolution | Right place? |
+|---|---|---|---|
+| **NPS** | you already have one | 2000px+ | **guaranteed** |
+| Unsplash | instant, 50/hr demo | very high | tagged, so checked |
+| Pixabay | instant | **1280px cap** on a standard key | tagged |
+| Wikimedia | none needed | varies wildly | geosearch is exact |
+
+**The National Park Service is the best source you have and it needs
+nothing new.** Its photographs are works of the federal government, so
+public domain — no licence, no attribution, nothing to get wrong — and
+`photos-hq.js` fetches them *by park code* rather than by searching a
+name, so the wrong-place problem cannot occur at all. It now runs first
+for every national park, monument, recreation area and historic site,
+and only falls through to the stock sites if the NPS has nothing:
+
+```bash
+node tools/photos-hq.js --run --tier=3      # the whole park service, no new key
+```
+
+Pixabay is worth knowing about but note the cap: a standard key only
+returns images up to 1280px wide, which is below the 1400px threshold,
+so it will reject almost everything unless you pass `--min-width=1200`.

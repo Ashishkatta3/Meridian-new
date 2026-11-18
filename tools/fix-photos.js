@@ -79,11 +79,12 @@ function faultOf(entry){
 }
 
 /* ---------- small fetch helpers ---------- */
-async function getJSON(url, ms){
+async function getJSON(url, ms, extraHeaders){
   const ctl = new AbortController();
   const to = setTimeout(() => ctl.abort(), ms || 20000);
   try {
-    const r = await fetch(url, { signal: ctl.signal, headers: { 'User-Agent': UA, 'Accept': 'application/json' } });
+    const headers = Object.assign({ 'User-Agent': UA, 'Accept': 'application/json' }, extraHeaders || {});
+    const r = await fetch(url, { signal: ctl.signal, headers: headers });
     clearTimeout(to);
     if (!r.ok) return null;
     return await r.json();
@@ -203,6 +204,62 @@ async function fromMapillary(place, token){
     w: 2048, h: 1152,
     by: 'Mapillary contributor', lic: 'CC BY-SA 4.0',
     page: 'https://www.mapillary.com/app/?pKey=' + x.id
+  }));
+}
+
+/* 6 — Pexels. Beautiful, large, free to use (no attribution required,
+      though we keep the photographer anyway). The catch is that these
+      are searched by NAME, not by coordinates — so a result is a photo
+      somebody TAGGED with the place, not one provably taken there. For
+      a city skyline that is exactly right; for an obscure trailhead it
+      can be a generic landscape. The `match` string carries the alt
+      text so scoring can insist the name actually appears, and these
+      only win when it does. */
+async function fromPexels(place, key){
+  if (!key) return [];
+  const q = place.name + (place.state ? ' ' + place.state : '');
+  const j = await getJSON('https://api.pexels.com/v1/search?per_page=12&orientation=landscape'
+    + '&query=' + encodeURIComponent(q), 10000, { Authorization: key });
+  const ph = j && j.photos;
+  if (!ph) return [];
+  return ph.filter(p => p.src && (p.src.large2x || p.src.large)).map(p => ({
+    source: 'pexels',
+    file: 'pexels-' + p.id + '.jpg',
+    match: (p.alt || '') + ' ' + (p.photographer || ''),
+    /* store a clean sizable base; the runtime appends ?w= itself */
+    url: (p.src.original || p.src.large2x).split('?')[0],
+    thumb: p.src.large || p.src.medium,
+    w: p.width || 1600, h: p.height || 1067,
+    by: p.photographer || '', lic: 'Pexels',
+    page: p.url || ''
+  }));
+}
+
+/* 7 — Unsplash. The same deal as Pexels: gorgeous, searched by name.
+      Unsplash's API terms ask that a use be attributed to the
+      photographer with a link back, which we store, and that a
+      download be registered — for a personal atlas that hotlinks the
+      raw URL this is a courtesy, and the photographer credit is the
+      part that matters. */
+async function fromUnsplash(place, key){
+  if (!key) return [];
+  const q = place.name + (place.state ? ' ' + place.state : '');
+  const j = await getJSON('https://api.unsplash.com/search/photos?per_page=12&orientation=landscape'
+    + '&content_filter=high&query=' + encodeURIComponent(q), 10000,
+    { Authorization: 'Client-ID ' + key });
+  const res = j && j.results;
+  if (!res) return [];
+  return res.filter(x => x.urls && x.urls.raw).map(x => ({
+    source: 'unsplash',
+    file: 'unsplash-' + x.id + '.jpg',
+    match: [x.alt_description, x.description,
+            (x.tags || []).map(t => t.title).join(' ')].filter(Boolean).join(' '),
+    /* the raw URL is the sizable base; runtime adds &w=&q=&fit=crop */
+    url: x.urls.raw,
+    thumb: x.urls.small || x.urls.regular,
+    w: x.width || 1600, h: x.height || 1067,
+    by: (x.user && x.user.name) || '', lic: 'Unsplash',
+    page: (x.links && x.links.html) || ''
   }));
 }
 

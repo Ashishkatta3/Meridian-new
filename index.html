@@ -17,7 +17,7 @@
 <!-- Installable: on a phone this adds Meridian to the home screen and it
      opens without browser chrome, which with the service worker below
      means it works in a canyon with no signal. -->
-<link rel="manifest" href="manifest.webmanifest?v=26">
+<link rel="manifest" href="manifest.webmanifest?v=27">
 <meta name="theme-color" content="#F7F5EF" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#11140F" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -27,13 +27,13 @@
 
 <!-- Stylesheets are split by concern. Bump ?v= on every deploy or a
      phone will hold an old copy of one file next to a new copy of another. -->
-<link rel="stylesheet" href="assets/css/tokens.css?v=26">
-<link rel="stylesheet" href="assets/css/base.css?v=26">
-<link rel="stylesheet" href="assets/css/map.css?v=26">
-<link rel="stylesheet" href="assets/css/place.css?v=26">
-<link rel="stylesheet" href="assets/css/home.css?v=26">
-<link rel="stylesheet" href="assets/css/pages.css?v=26">
-<link rel="stylesheet" href="assets/css/sheet.css?v=26">
+<link rel="stylesheet" href="assets/css/tokens.css?v=27">
+<link rel="stylesheet" href="assets/css/base.css?v=27">
+<link rel="stylesheet" href="assets/css/map.css?v=27">
+<link rel="stylesheet" href="assets/css/place.css?v=27">
+<link rel="stylesheet" href="assets/css/home.css?v=27">
+<link rel="stylesheet" href="assets/css/pages.css?v=27">
+<link rel="stylesheet" href="assets/css/sheet.css?v=27">
 </head>
 <body>
 
@@ -145,52 +145,52 @@
 
 <!-- Load order matters: vocabulary, then data, then the pieces that
      read it, then boot. geo.us.js is generated; the rest is hand-edited. -->
-<script src="assets/js/data/taxonomy.js?v=26"></script>
-<script src="assets/js/data/places.js?v=26"></script>
-<script src="assets/js/data/spots.js?v=26"></script>
-<script src="assets/js/data/food.js?v=26"></script>
-<script src="assets/js/data/info.js?v=26"></script>
-<script src="assets/js/data/photos.js?v=26"></script>
-<script src="assets/js/data/roadtrips.js?v=26"></script>
-<script src="assets/js/data/bucket.js?v=26"></script>
-<script src="assets/js/data/longform.cities.js?v=26"></script>
-<script src="assets/js/data/longform.parks.js?v=26"></script>
-<script src="assets/js/data/longform.js?v=26"></script>
-<script src="assets/js/data/geo.us.js?v=26"></script>
+<script src="assets/js/data/taxonomy.js?v=27"></script>
+<script src="assets/js/data/places.js?v=27"></script>
+<script src="assets/js/data/spots.js?v=27"></script>
+<script src="assets/js/data/food.js?v=27"></script>
+<script src="assets/js/data/info.js?v=27"></script>
+<script src="assets/js/data/photos.js?v=27"></script>
+<script src="assets/js/data/roadtrips.js?v=27"></script>
+<script src="assets/js/data/bucket.js?v=27"></script>
+<script src="assets/js/data/longform.cities.js?v=27"></script>
+<script src="assets/js/data/longform.parks.js?v=27"></script>
+<script src="assets/js/data/longform.js?v=27"></script>
+<script src="assets/js/data/geo.us.js?v=27"></script>
 
-<script src="assets/js/core/config.js?v=26"></script>
-<script src="assets/js/core/auth.js?v=26"></script>
-<script src="assets/js/core/sun.js?v=26"></script>
-<script src="assets/js/core/events.js?v=26"></script>
-<script src="assets/js/core/search.js?v=26"></script>
-<script src="assets/js/core/state.js?v=26"></script>
-<script src="assets/js/core/geo.js?v=26"></script>
-<script src="assets/js/core/tags.js?v=26"></script>
-<script src="assets/js/core/itin.js?v=26"></script>
-<script src="assets/js/core/stops.js?v=26"></script>
-<script src="assets/js/core/pick.js?v=26"></script>
-<script src="assets/js/core/trips.js?v=26"></script>
-<script src="assets/js/core/cloud.js?v=26"></script>
-<script src="assets/js/core/share.js?v=26"></script>
-<script src="assets/js/core/photos.js?v=26"></script>
-<script src="assets/js/core/live.js?v=26"></script>
-<script src="assets/js/core/offline.js?v=26"></script>
+<script src="assets/js/core/config.js?v=27"></script>
+<script src="assets/js/core/auth.js?v=27"></script>
+<script src="assets/js/core/sun.js?v=27"></script>
+<script src="assets/js/core/events.js?v=27"></script>
+<script src="assets/js/core/search.js?v=27"></script>
+<script src="assets/js/core/state.js?v=27"></script>
+<script src="assets/js/core/geo.js?v=27"></script>
+<script src="assets/js/core/tags.js?v=27"></script>
+<script src="assets/js/core/itin.js?v=27"></script>
+<script src="assets/js/core/stops.js?v=27"></script>
+<script src="assets/js/core/pick.js?v=27"></script>
+<script src="assets/js/core/trips.js?v=27"></script>
+<script src="assets/js/core/cloud.js?v=27"></script>
+<script src="assets/js/core/share.js?v=27"></script>
+<script src="assets/js/core/photos.js?v=27"></script>
+<script src="assets/js/core/live.js?v=27"></script>
+<script src="assets/js/core/offline.js?v=27"></script>
 
-<script src="assets/js/map/icons.js?v=26"></script>
-<script src="assets/js/map/usmap.js?v=26"></script>
-<script src="assets/js/map/mini.js?v=26"></script>
-<script src="assets/js/map/tiles.js?v=26"></script>
+<script src="assets/js/map/icons.js?v=27"></script>
+<script src="assets/js/map/usmap.js?v=27"></script>
+<script src="assets/js/map/mini.js?v=27"></script>
+<script src="assets/js/map/tiles.js?v=27"></script>
 
-<script src="assets/js/pages/place.js?v=26"></script>
-<script src="assets/js/pages/home.js?v=26"></script>
-<script src="assets/js/pages/planner.js?v=26"></script>
-<script src="assets/js/pages/trips.js?v=26"></script>
-<script src="assets/js/pages/states.js?v=26"></script>
-<script src="assets/js/pages/account.js?v=26"></script>
-<script src="assets/js/pages/welcome.js?v=26"></script>
-<script src="assets/js/pages/sheet.js?v=26"></script>
+<script src="assets/js/pages/place.js?v=27"></script>
+<script src="assets/js/pages/home.js?v=27"></script>
+<script src="assets/js/pages/planner.js?v=27"></script>
+<script src="assets/js/pages/trips.js?v=27"></script>
+<script src="assets/js/pages/states.js?v=27"></script>
+<script src="assets/js/pages/account.js?v=27"></script>
+<script src="assets/js/pages/welcome.js?v=27"></script>
+<script src="assets/js/pages/sheet.js?v=27"></script>
 
-<script src="assets/js/app.js?v=26"></script>
-<script src="assets/js/core/router.js?v=26"></script>
+<script src="assets/js/app.js?v=27"></script>
+<script src="assets/js/core/router.js?v=27"></script>
 </body>
 </html>

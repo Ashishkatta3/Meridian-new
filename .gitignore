@@ -1,0 +1,16 @@
+# ---- tool byproducts: large, regenerable, not part of the site ----
+meridian-seed.json          # raw API dump from tools/fetch-seed.js
+wikivoyage-cache.json       # resume cache for tools/fetch-listings.js
+assets/js/data/photos.remote.js   # backup of the hotlinked photos.js
+
+# ---- downloaded images ----
+# Hotlinked photos work without these. Uncomment the next line ONLY if
+# you decide to self-host them and have run tools/download-photos.js,
+# which rewrites photos.js to point at these files.
+assets/img/places/
+
+# ---- the usual ----
+node_modules/
+.DS_Store
+Thumbs.db
+*.log

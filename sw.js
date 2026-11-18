@@ -34,7 +34,7 @@
    caches are named from it, so a new version cannot read an old
    shell — the bug where a phone holds one new file next to one old
    one is impossible by construction here. */
-const VERSION = 'v26';
+const VERSION = 'v27';
 
 const SHELL  = 'meridian-shell-'  + VERSION;
 const DATA   = 'meridian-data-'   + VERSION;
@@ -229,6 +229,30 @@ self.addEventListener('fetch', e => {
      phone with one bar) would otherwise leave the page blank for
      thirty seconds, so after 2.5s the cache answers instead and the
      network copy still refreshes the cache when it arrives. */
+  /* ---------- our own photographs ----------
+
+     assets/photos/ holds the pictures the site hosts itself. These
+     are immutable for a given filename — the width is in the name,
+     and replacing one writes a new file — so they want the opposite
+     treatment to the code: serve from cache instantly, and refresh
+     in the background in case the tool re-downloaded one.
+
+     This has to sit ABOVE the same-origin branch below, which is
+     network-first and would otherwise make every card wait on the
+     network before drawing, and would never cache them for offline. */
+  if (url.origin === self.location.origin && /^\/assets\/photos\//.test(url.pathname)){
+    e.respondWith((async () => {
+      const c = await caches.open(PHOTOS);
+      const hit = await c.match(req);
+      const fresh = fetch(req).then(res => {
+        if (res && res.ok){ c.put(req, res.clone()); trim(PHOTOS, PHOTO_CAP); }
+        return res;
+      }).catch(() => null);
+      return hit || (await fresh) || new Response('', { status: 504 });
+    })());
+    return;
+  }
+
   if (url.origin === self.location.origin){
     e.respondWith((async () => {
       const bare = url.origin + url.pathname;
