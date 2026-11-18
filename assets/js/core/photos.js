@@ -144,8 +144,30 @@ function wmParse(url){
 }
 
 /* Every address the same picture can be reached at, cheapest first. */
+/* Photographs the site hosts itself, written by tools/photos-hq.js as
+   assets/photos/<id>-<width>.jpg. Two widths exist — a hero and a
+   card — so asking for one size and being handed the other is the
+   difference between a 40KB thumbnail and a 400KB hero on a phone. */
+const LOCAL_SIZES = [640, 1600];
+function localParse(url){
+  const m = /^(assets\/photos\/.+)-(\d+)\.jpg$/.exec(url || '');
+  return m ? { base: m[1], size: +m[2] } : null;
+}
+
 function photoVariants(url, w){
   const out = [];
+
+  /* our own copy: pick the smallest width that still covers the box */
+  const L = localParse(url);
+  if (L){
+    const want = w || L.size;
+    const best = LOCAL_SIZES.find(s => s >= want) || LOCAL_SIZES[LOCAL_SIZES.length - 1];
+    out.push(['local', L.base + '-' + best + '.jpg']);
+    /* and if that one was never downloaded, the stored one certainly was */
+    if (best !== L.size) out.push(['local', url]);
+    return out;
+  }
+
   const f = wmParse(url);
   if (f && w && !/\.svg$/i.test(f.file)){
     /* Wikimedia's own resized copy, straight from its CDN */
