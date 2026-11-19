@@ -43,9 +43,36 @@ const STATE_FULL = {
    A city usually needs its state to be unambiguous ("Portland, Oregon"),
    while a park almost never does — "Yosemite National Park, California"
    is not an article. So the order flips depending on what the place is. */
+/* Names that belong to more than one place in the atlas.
+
+   Eight of them do: two Portlands, two Charlestons, two Kansas
+   Citys, and a Garden of the Gods in both Colorado and Illinois.
+   For those the bare name is whichever one Wikipedia considers
+   primary, which is exactly how the Illinois page ended up showing
+   Colorado's red rocks.
+
+   Worked out once from the atlas rather than hardcoded, so adding a
+   second Springfield later fixes itself. */
+let SHARED_NAMES = null;
+function nameIsShared(name){
+  if (!SHARED_NAMES){
+    SHARED_NAMES = {};
+    const seen = {};
+    try {
+      Object.keys(PLACES).forEach(id => {
+        const n = (PLACES[id][0] || '').toLowerCase();
+        if (seen[n]) SHARED_NAMES[n] = 1; else seen[n] = 1;
+      });
+    } catch(e){}
+  }
+  return !!SHARED_NAMES[(name || '').toLowerCase()];
+}
+
 function photoTitles(place){
   const st = STATE_FULL[place.abbr] || place.abbr;
   const n  = place.name;
+  /* Shared name: qualify first, bare name only as a last resort. */
+  if (nameIsShared(n)) return [n + ' (' + st + ')', n + ', ' + st, n];
   if (place.kind === 'city') return [n + ', ' + st, n];
   return [n, n + ' (' + st + ')', n + ', ' + st];
 }
