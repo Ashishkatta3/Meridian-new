@@ -375,9 +375,13 @@ function pick(cands, place){
    =========================================================== */
 function writePhotos(PHOTOS){
   const p = path.join(DATA, 'photos.js');
-  const head = fs.readFileSync(p, 'utf8').split('const PHOTOS =')[0];
-  fs.writeFileSync(p, head + 'const PHOTOS = ' + JSON.stringify(PHOTOS) + ';\n\n'
-    + 'function photoLocal(id){ return PHOTOS[id] || null; }\n');
+  const src = fs.readFileSync(p, 'utf8');
+  const i = src.indexOf('const PHOTOS =');
+  const head = i === -1 ? src : src.slice(0, i);
+  const m = i === -1 ? null : /\};\s*\n/.exec(src.slice(i));
+  const tail = m ? src.slice(i + m.index + m[0].length)
+                 : 'function photoLocal(id){ return (typeof PHOTOS!=="undefined" && PHOTOS[id]) || null; }\n';
+  fs.writeFileSync(p, head + 'const PHOTOS = ' + JSON.stringify(PHOTOS) + ';\n\n' + tail);
 }
 
 function writeCredits(manifest, PLACES, PG){

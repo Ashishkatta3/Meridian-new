@@ -253,11 +253,32 @@ function readCredits(dir){
   return out;
 }
 
+/* the same rule the states page uses to choose a state's face */
+function stateFacesLocal(PLACES, PG){
+  const byState = {};
+  Object.keys(PLACES).forEach(id => {
+    const p = PG(id); if (!p || !p.abbr) return;
+    (byState[p.abbr] = byState[p.abbr] || []).push(id);
+  });
+  const faces = {};
+  Object.keys(byState).forEach(ab => {
+    faces[byState[ab].sort((a, b) => (PG(b).prom || 0) - (PG(a).prom || 0))[0]] = ab;
+  });
+  return faces;
+}
+
+/* Keep whatever the generated file had after the PHOTOS object —
+   photoLocal() lives there, and rewriting the file without it would
+   silently stop every baked photograph from being found. */
 function writePhotos(PHOTOS){
   const p = path.join(DATA, 'photos.js');
-  const head = fs.readFileSync(p, 'utf8').split('const PHOTOS =')[0];
-  fs.writeFileSync(p, head + 'const PHOTOS = ' + JSON.stringify(PHOTOS) + ';\n\n'
-    + 'function photoLocal(id){ return PHOTOS[id] || null; }\n');
+  const src = fs.readFileSync(p, 'utf8');
+  const i = src.indexOf('const PHOTOS =');
+  const head = i === -1 ? src : src.slice(0, i);
+  const m = i === -1 ? null : /\};\s*\n/.exec(src.slice(i));
+  const tail = m ? src.slice(i + m.index + m[0].length)
+                 : 'function photoLocal(id){ return (typeof PHOTOS!=="undefined" && PHOTOS[id]) || null; }\n';
+  fs.writeFileSync(p, head + 'const PHOTOS = ' + JSON.stringify(PHOTOS) + ';\n\n' + tail);
 }
 
 function writeCredits(manifest, PG){
@@ -288,6 +309,71 @@ async function main(){
   const { PLACES, PHOTOS, placeGet: PG } = loadData();
   if (typeof PG !== 'function'){ console.error('places.js did not yield placeGet'); process.exit(1); }
   const index = buildIndex(PLACES, PG);
+
+  /* ---------- --verify ----------
+
+     "Some places use my new pictures and some don't" is almost always
+     one of four things, and they are hard to tell apart by looking at
+     the site. This says which, per place:
+
+       local      photos.js points at assets/photos/ and the file is
+                  there — this one is yours
+       BROKEN     photos.js points at a local file that is NOT on
+                  disk, so the card falls back to a grey box. Usually
+                  means assets/photos/ was not deployed
+       remote     still on Wikimedia — the import never matched a
+                  file to it, so nothing changed
+       none       no photograph at all                              */
+  if (has('verify')){
+    const rows = Object.keys(PLACES).map(id => {
+      const e = PHOTOS[id];
+      const p = PG(id);
+      if (!e || !e.s) return { id, p, state: 'none' };
+      if (!/^assets\/photos\//.test(e.s)) return { id, p, state: 'remote' };
+      const missing = SIZES.filter(w => !fs.existsSync(path.join(PHOTODIR, id + '-' + w + '.jpg')));
+      if (missing.length) return { id, p, state: 'BROKEN', missing };
+      const dim = imageSize(path.join(PHOTODIR, id + '-' + SIZES[0] + '.jpg'));
+      return { id, p, state: 'local', dim };
+    });
+
+    const by = s => rows.filter(r => r.state === s);
+    console.log('\nMeridian — which photographs are yours\n');
+    console.log('  local   ' + String(by('local').length).padStart(4) + '  hosted by you, file present');
+    console.log('  BROKEN  ' + String(by('BROKEN').length).padStart(4) + '  photos.js points at a file that is not on disk');
+    console.log('  remote  ' + String(by('remote').length).padStart(4) + '  still Wikimedia — the import never matched these');
+    console.log('  none    ' + String(by('none').length).padStart(4) + '  no photograph at all');
+
+    if (by('BROKEN').length){
+      console.log('\n  BROKEN — these show a grey box. Either re-import them, or check that');
+      console.log('  assets/photos/ was actually committed and deployed:\n');
+      by('BROKEN').slice(0, 30).forEach(r =>
+        console.log('      ' + r.id.padEnd(42) + 'missing ' + r.missing.join('px, ') + 'px'));
+    }
+
+    const small = by('local').filter(r => r.dim && r.dim.w && r.dim.w < MIN_WIDTH);
+    if (small.length){
+      console.log('\n  Imported but under ' + MIN_WIDTH + 'px — worth re-downloading bigger:\n');
+      small.slice(0, 30).forEach(r => console.log('      ' + r.id.padEnd(42) + r.dim.w + 'px'));
+    }
+
+    if (has('todo') || arg('todo')){
+      const faces = stateFacesLocal(PLACES, PG);
+      const todo = by('remote').concat(by('none'))
+        .map(r => Object.assign(r, { tier: faces[r.id] ? 1
+          : (r.p.kind === 'city' && (r.p.prom || 0) >= 8) ? 2
+          : /^(np|monument|rec|historic)$/.test(r.p.kind) ? 3
+          : r.p.kind === 'city' ? 4 : 5 }))
+        .sort((a, b) => a.tier - b.tier || (b.p.prom || 0) - (a.p.prom || 0));
+      console.log('\n  Still to do, in priority order — download these next:\n');
+      todo.slice(0, +arg('todo') || 40).forEach(r =>
+        console.log('      ' + String(r.tier) + '  ' + r.id.padEnd(42)
+          + r.p.name + (faces[r.id] ? '   (face of ' + faces[r.id] + ')' : '')));
+      console.log('\n  Name the files after the ids above and they will match first time.');
+    } else {
+      console.log('\n  Add --todo to list what to download next, in priority order.');
+    }
+    return;
+  }
 
   if (has('ids')){
     console.log('\nEvery place id, for renaming a file the matcher could not place.\n');

@@ -103,19 +103,58 @@ async function get(url, opts){
   return { error: 'gave up' };
 }
 
+/* Names that belong to two different places in the atlas — two
+   Portlands, two Charlestons, a Garden of the Gods in both Colorado
+   and Illinois. Asking Wikipedia for the bare name returns whichever
+   it considers primary, which is how the Illinois page ended up
+   showing Colorado's red rocks. For these, qualify by state. */
+let SHARED = null;
+function sharedNames(PLACES){
+  if (SHARED) return SHARED;
+  SHARED = {}; const seen = {};
+  Object.keys(PLACES).forEach(id => {
+    const n = (PLACES[id][0] || '').toLowerCase();
+    if (seen[n]) SHARED[n] = 1; else seen[n] = 1;
+  });
+  return SHARED;
+}
+const STATE_NAMES = { AL:'Alabama',AK:'Alaska',AZ:'Arizona',AR:'Arkansas',CA:'California',
+  CO:'Colorado',CT:'Connecticut',DE:'Delaware',FL:'Florida',GA:'Georgia',HI:'Hawaii',
+  ID:'Idaho',IL:'Illinois',IN:'Indiana',IA:'Iowa',KS:'Kansas',KY:'Kentucky',LA:'Louisiana',
+  ME:'Maine',MD:'Maryland',MA:'Massachusetts',MI:'Michigan',MN:'Minnesota',MS:'Mississippi',
+  MO:'Missouri',MT:'Montana',NE:'Nebraska',NV:'Nevada',NH:'New Hampshire',NJ:'New Jersey',
+  NM:'New Mexico',NY:'New York',NC:'North Carolina',ND:'North Dakota',OH:'Ohio',OK:'Oklahoma',
+  OR:'Oregon',PA:'Pennsylvania',RI:'Rhode Island',SC:'South Carolina',SD:'South Dakota',
+  TN:'Tennessee',TX:'Texas',UT:'Utah',VT:'Vermont',VA:'Virginia',WA:'Washington',
+  WV:'West Virginia',WI:'Wisconsin',WY:'Wyoming',DC:'District of Columbia' };
+
+/* What to ask Wikipedia for, best guess first. */
+function titlesFor(place, shared){
+  if (place.wiki) return [place.wiki];
+  const st = STATE_NAMES[place.abbr] || place.abbr;
+  const n = place.name;
+  if (shared && shared[(n || '').toLowerCase()])
+    return [n + ' (' + st + ')', n + ', ' + st, n];
+  if (place.kind === 'city') return [n + ', ' + st, n];
+  return [n, n + ' (' + st + ')'];
+}
+
 /* ---------- Wikidata ---------- */
 async function wikidata(place){
   /* find the entity from the English Wikipedia title, which is more
      reliable than a label search — "Springfield" has thirty labels */
-  const title = place.wiki || place.name;
-  if (!title) return { error: 'no title' };
-  const q = 'https://www.wikidata.org/w/api.php?action=wbgetentities&sites=enwiki&format=json'
-          + '&props=claims|sitelinks&titles=' + encodeURIComponent(title);
-  const r = await get(q);
-  if (r.error) return { error: r.error };
+  const titles = place.titles || [place.wiki || place.name].filter(Boolean);
+  if (!titles.length) return { error: 'no title' };
 
-  const ents = (r.data && r.data.entities) || {};
-  const id = Object.keys(ents).find(k => k !== '-1');
+  let ents = {}, id = null;
+  for (const title of titles){
+    const r = await get('https://www.wikidata.org/w/api.php?action=wbgetentities&sites=enwiki'
+      + '&format=json&props=claims|sitelinks&titles=' + encodeURIComponent(title));
+    if (r.error) continue;
+    ents = (r.data && r.data.entities) || {};
+    id = Object.keys(ents).find(k => k !== '-1');
+    if (id) break;
+  }
   if (!id) return { error: 'no wikidata entity' };
   const e = ents[id];
   const c = e.claims || {};
@@ -145,14 +184,19 @@ async function wikidata(place){
 
 /* ---------- Wikipedia summary, with its own freshness ---------- */
 async function wikipedia(place){
-  const title = place.wiki || place.name;
-  if (!title) return { error: 'no title' };
-  const base = 'https://en.wikipedia.org/api/rest_v1/page/summary/'
-             + encodeURIComponent(title.replace(/ /g, '_'));
-  const r = await get(base);
-  if (r.error) return { error: r.error };
-  const d = r.data || {};
-  if (d.type === 'disambiguation') return { error: 'disambiguation page' };
+  const titles = place.titles || [place.wiki || place.name].filter(Boolean);
+  if (!titles.length) return { error: 'no title' };
+
+  let d = null, title = null;
+  for (const t of titles){
+    const r = await get('https://en.wikipedia.org/api/rest_v1/page/summary/'
+      + encodeURIComponent(t.replace(/ /g, '_')));
+    if (r.error) continue;
+    const got = r.data || {};
+    if (got.type === 'disambiguation' || !got.extract) continue;
+    d = got; title = t; break;
+  }
+  if (!d) return { error: 'no usable article' };
 
   /* when the article itself was last touched — the number that makes
      "is this five years old?" answerable */
@@ -407,6 +451,7 @@ async function runFetch(opts){
        made every fetch die on `.replace` of undefined. */
     const place = (typeof PG === 'function' ? PG(id) : null) || { id: id };
     place.id = id;
+    place.titles = titlesFor(place, sharedNames(PLACES));
     if (!place.name){ console.log('  skipped ' + id + ' — no name in places.js'); continue; }
     n++;
     const tag = String(n).padStart(4) + '/' + want.length + '  ' + id;
