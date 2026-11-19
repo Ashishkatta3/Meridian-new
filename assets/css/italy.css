@@ -1,0 +1,195 @@
+/* ===========================================================
+   ITALY
+
+   Only the pieces the US pages had no need for: a photographic hero,
+   a numbered list of things to do, a practical definition list, and
+   a few adjustments to the live panel for the fact that Italy's has
+   a great deal more in it.
+
+   Everything is written against the existing tokens, so light and
+   dark both follow the rest of the site with nothing restated here.
+   =========================================================== */
+
+/* ---------- the hero photograph ---------- */
+.it-hero{
+  position: relative;
+  margin-top: 22px;
+  border-radius: var(--r-l);
+  overflow: hidden;
+  background: var(--panel-2);
+  /* Height rather than aspect-ratio, deliberately.
+
+     aspect-ratio with a max-height does not crop — it shrinks the box
+     in BOTH directions to preserve the ratio, so capping the height
+     left the photograph standing short of the right-hand margin. An
+     explicit height with width:100% crops instead, which is what was
+     wanted: a wide band that never pushes the live panel off the
+     first screen. */
+  width: 100%;
+  height: clamp(200px, 36vw, 420px);
+}
+.it-hero > img,
+.it-hero .ph-img{
+  display: block;
+  width: 100%; height: 100%;
+  object-fit: cover;
+  object-position: center 55%;
+}
+/* No photograph at all: collapse rather than reserve 400px of empty
+   beige. A place without a picture should look like a page without a
+   picture, not like a page whose picture failed to load. */
+.it-hero.is-empty{
+  display: none;
+}
+.it-hero-credit{
+  position: absolute; right: 10px; bottom: 9px;
+  font: 500 10px/1 var(--mono);
+  letter-spacing: .06em;
+  color: var(--panel);
+  background: rgba(25,29,27,.55);
+  padding: 5px 8px; border-radius: 999px;
+  text-decoration: none;
+  backdrop-filter: blur(4px);
+}
+.it-hero-credit:hover{ background: rgba(25,29,27,.78); }
+
+@media (max-width: 640px){
+  .it-hero{ height: 54vw; border-radius: var(--r-m); }
+}
+
+/* ---------- running text ---------- */
+.it-prose p{
+  font: 400 16.5px/1.62 var(--sans);
+  color: var(--ink-2);
+  margin: 0 0 14px;
+  max-width: 68ch;
+}
+.it-prose p:last-child{ margin-bottom: 0; }
+
+/* ---------- what to do ---------- */
+.it-todo{
+  list-style: none;
+  margin: 0; padding: 0;
+  counter-reset: todo;
+  display: grid; gap: 2px;
+}
+.it-todo li{
+  counter-increment: todo;
+  position: relative;
+  padding: 16px 0 16px 46px;
+  border-top: 1px solid var(--rule-soft);
+}
+.it-todo li:first-child{ border-top: 0; padding-top: 4px; }
+.it-todo li::before{
+  content: counter(todo);
+  position: absolute; left: 0; top: 16px;
+  width: 28px; height: 28px;
+  display: grid; place-items: center;
+  border: 1px solid var(--rule);
+  border-radius: 50%;
+  font: 500 12px/1 var(--mono);
+  color: var(--muted);
+}
+.it-todo li:first-child::before{ top: 4px; }
+.it-todo b{
+  display: block;
+  font: 600 17px/1.3 var(--sans);
+  color: var(--ink);
+}
+.it-todo i{
+  display: block; margin-top: 4px;
+  font: 500 10.5px/1 var(--mono);
+  letter-spacing: .09em; text-transform: uppercase;
+  color: var(--muted);
+  font-style: normal;
+}
+.it-todo p{
+  margin: 7px 0 0;
+  font: 400 15px/1.58 var(--sans);
+  color: var(--ink-2);
+  max-width: 66ch;
+}
+
+/* ---------- practical ---------- */
+.it-prac{
+  margin: 0; padding: 0;
+  display: grid; gap: 1px;
+  background: var(--rule-soft);
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--r-m);
+  overflow: hidden;
+}
+.it-prac > div{
+  background: var(--panel);
+  padding: 13px 15px;
+  display: grid;
+  grid-template-columns: 140px 1fr;
+  gap: 14px;
+  align-items: baseline;
+}
+.it-prac dt{
+  font: 500 10.5px/1.4 var(--mono);
+  letter-spacing: .1em; text-transform: uppercase;
+  color: var(--muted);
+}
+.it-prac dd{
+  margin: 0;
+  font: 400 15px/1.55 var(--sans);
+  color: var(--ink-2);
+}
+@media (max-width: 560px){
+  .it-prac > div{ grid-template-columns: 1fr; gap: 5px; }
+}
+
+/* ---------- the live panel ----------
+   Italy's panel carries far more rows than the US one, so it gets
+   two columns where there is room for them. */
+.it-live .pl-lv{ break-inside: avoid; }
+@media (min-width: 860px){
+  .it-live{ column-count: 2; column-gap: 30px; }
+  .it-live h3,
+  .it-live .pl-fc,
+  .it-live .pl-live-src{ column-span: all; }
+}
+.it-live-wait{
+  font: 400 14px/1.5 var(--sans);
+  color: var(--muted);
+  margin: 0;
+}
+.it-live .pl-lv-v small{
+  font: 500 11px/1 var(--mono);
+  color: var(--muted);
+  margin-left: 5px;
+  letter-spacing: .05em;
+}
+
+/* The forecast strip, which the US pages define for named periods
+   ("Tuesday Night") rather than the short weekday labels used here. */
+.it-live .pl-fc{
+  display: flex; gap: 8px; flex-wrap: wrap;
+  margin-top: 4px;
+}
+.it-live .pl-fc span{
+  flex: 1 1 86px;
+  min-width: 0;
+  border: 1px solid var(--rule-soft);
+  border-radius: var(--r-s);
+  padding: 9px 10px;
+  display: block;
+}
+.it-live .pl-fc i{
+  display: block;
+  font: 500 10px/1 var(--mono);
+  letter-spacing: .09em; text-transform: uppercase;
+  color: var(--muted); font-style: normal;
+}
+.it-live .pl-fc b{
+  display: block; margin-top: 5px;
+  font: 600 17px/1 var(--sans); color: var(--ink);
+}
+.it-live .pl-fc em{
+  display: block; margin-top: 4px;
+  font: 400 11.5px/1.35 var(--sans);
+  color: var(--muted); font-style: normal;
+  overflow-wrap: anywhere;
+}
