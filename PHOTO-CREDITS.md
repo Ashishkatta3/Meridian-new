@@ -7,11 +7,12 @@ Pexels, Pixabay and Unsplash all allow download, hosting and commercial use
 without permission, and none of them require attribution. The credits are here
 because the photographers earned them.
 
-> 52 photograph(s) have no photographer recorded. Add them to a `credits.csv` and re-import to fill these in.
+> 62 photograph(s) have no photographer recorded. Add them to a `credits.csv` and re-import to fill these in.
 
 | Place | Photographer | Source | Link |
 |---|---|---|---|
 | Gates of the Arctic National Park | _unknown_ | hand import | — |
+| Glacier Bay National Park | _unknown_ | hand import | — |
 | Kenai Fjords National Park | _unknown_ | hand import | — |
 | Kobuk Valley National Park | _unknown_ | hand import | — |
 | Antelope Canyon | _unknown_ | hand import | — |
@@ -19,6 +20,8 @@ because the photographers earned them.
 | Petrified Forest National Park | _unknown_ | hand import | — |
 | Saguaro National Park | _unknown_ | hand import | — |
 | Anaheim | _unknown_ | hand import | — |
+| Big Sur and Point Lobos | _unknown_ | hand import | — |
+| Channel Islands National Park | _unknown_ | hand import | — |
 | Napa | _unknown_ | hand import | — |
 | Palm Springs | _unknown_ | hand import | — |
 | San Diego | _unknown_ | hand import | — |
@@ -34,6 +37,7 @@ because the photographers earned them.
 | Rock Creek Park | _unknown_ | hand import | — |
 | The National Mall | _unknown_ | hand import | — |
 | Washington | _unknown_ | hand import | — |
+| Daytona Beach | _unknown_ | hand import | — |
 | Fort Lauderdale | _unknown_ | hand import | — |
 | Key Largo | _unknown_ | hand import | — |
 | Key West | _unknown_ | hand import | — |
@@ -42,16 +46,22 @@ because the photographers earned them.
 | Sarasota | _unknown_ | hand import | — |
 | St. Augustine | _unknown_ | hand import | — |
 | Savannah | _unknown_ | hand import | — |
+| Hawaiʻi Volcanoes National Park | _unknown_ | hand import | — |
 | Hilo | _unknown_ | hand import | — |
 | Kauai | _unknown_ | hand import | — |
 | Chicago | _unknown_ | hand import | — |
+| Monument Rocks | _unknown_ | hand import | — |
+| Cumberland Falls State Park | _unknown_ | hand import | — |
 | New Orleans | _unknown_ | hand import | — |
+| Cape Cod National Seashore | _unknown_ | hand import | — |
 | Acadia National Park | _unknown_ | hand import | — |
 | Bar Harbor | _unknown_ | hand import | — |
 | Portland | _unknown_ | hand import | — |
 | Boundary Waters | _unknown_ | hand import | — |
+| Ozark National Scenic Riverways | _unknown_ | hand import | — |
 | Beartooth Highway | _unknown_ | hand import | — |
 | Red Lodge | _unknown_ | hand import | — |
+| Blue Ridge Parkway | _unknown_ | hand import | — |
 | The Finger Lakes | _unknown_ | hand import | — |
 | Cuyahoga Valley National Park | _unknown_ | hand import | — |
 | Bend | _unknown_ | hand import | — |
