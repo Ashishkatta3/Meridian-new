@@ -75,6 +75,24 @@
     if (hash === '/account' && typeof mountAccount === 'function'){
       mountAccount(page); view('account'); return;
     }
+    /* ---- Italy ----
+       Matched before #/map and #/state so that the longer Italian
+       paths cannot be swallowed by a shorter pattern. */
+    m = hash.match(/^\/italy\/place\/(.+)$/);
+    if (m && typeof mountItPlace === 'function'){
+      const pid = decodeURIComponent(m[1]);
+      if (typeof itPlaceGet === 'function' && itPlaceGet(pid)){
+        mountItPlace(page, pid); view('italy'); return;
+      }
+    }
+    m = hash.match(/^\/italy\/region\/([A-Za-z]{3})$/);
+    if (m && typeof mountItRegion === 'function'){
+      mountItRegion(page, m[1].toUpperCase()); view('italy'); return;
+    }
+    if (hash === '/italy' && typeof mountItaly === 'function'){
+      mountItaly(page); view('italy'); return;
+    }
+
     if (hash === '/map' && typeof mountMapPage === 'function'){
       mountMapPage(page); view('map'); return;
     }

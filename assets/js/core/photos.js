@@ -68,7 +68,35 @@ function nameIsShared(name){
   return !!SHARED_NAMES[(name || '').toLowerCase()];
 }
 
+/* Italy disambiguates the other way round.
+
+   A US city almost always needs its state — bare "Portland" is a
+   disambiguation page — so the US branch asks for "Portland, Oregon"
+   first. Italian places are usually the primary topic for their own
+   name: "Positano", "Matera" and "Alberobello" all go straight to the
+   right article, and "Positano, Campania" is not an article at all.
+
+   So Italy tries the bare name first, and the genuine exceptions —
+   the ones filed under an English name like "Phlegraean Fields" or a
+   qualified one like "Ragusa, Sicily" — are listed in IT_WIKI rather
+   than guessed at. Guessing is what put Colorado's red rocks on the
+   Illinois page. */
+function photoTitlesIT(place){
+  try {
+    if (typeof IT_WIKI !== 'undefined' && IT_WIKI[place.id]) return [IT_WIKI[place.id]];
+  } catch(e){}
+  const n = place.name;
+  const out = [n];
+  try {
+    if (typeof IT_REGIONS !== 'undefined' && IT_REGIONS[place.abbr])
+      out.push(n + ', ' + IT_REGIONS[place.abbr][0]);
+  } catch(e){}
+  out.push(n + ', Italy', n + ' (Italy)');
+  return out;
+}
+
 function photoTitles(place){
+  if (place && place.country === 'IT') return photoTitlesIT(place);
   const st = STATE_FULL[place.abbr] || place.abbr;
   const n  = place.name;
   /* Shared name: qualify first, bare name only as a last resort. */
