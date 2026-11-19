@@ -34,7 +34,7 @@
    caches are named from it, so a new version cannot read an old
    shell — the bug where a phone holds one new file next to one old
    one is impossible by construction here. */
-const VERSION = 'v28';
+const VERSION = 'v29';
 
 const SHELL  = 'meridian-shell-'  + VERSION;
 const DATA   = 'meridian-data-'   + VERSION;
@@ -60,6 +60,7 @@ const SHELL_FILES = [
   'assets/css/home.css',
   'assets/css/pages.css',
   'assets/css/sheet.css',
+  'assets/css/italy.css',
 
   'assets/js/core/config.js',
   'assets/js/core/auth.js',
@@ -77,6 +78,7 @@ const SHELL_FILES = [
   'assets/js/core/share.js',
   'assets/js/core/photos.js',
   'assets/js/core/live.js',
+  'assets/js/core/italy.live.js',
   'assets/js/core/offline.js',
 
   'assets/js/map/icons.js',
@@ -92,6 +94,7 @@ const SHELL_FILES = [
   'assets/js/pages/account.js',
   'assets/js/pages/welcome.js',
   'assets/js/pages/sheet.js',
+  'assets/js/pages/italy.js',
 
   'assets/js/app.js',
   'assets/js/core/router.js'
@@ -111,7 +114,9 @@ const DATA_FILES = [
   'assets/js/data/longform.cities.js',
   'assets/js/data/longform.parks.js',
   'assets/js/data/longform.js',
-  'assets/js/data/geo.us.js'
+  'assets/js/data/geo.us.js',
+  'assets/js/data/italy.places.js',
+  'assets/js/data/italy.guide.js'
 ];
 
 /* ---------- install ---------- */
