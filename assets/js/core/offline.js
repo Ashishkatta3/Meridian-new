@@ -34,12 +34,19 @@ async function offlineRegister(){
   try {
     OFF_REG = await navigator.serviceWorker.register('sw.js', { scope: './' });
 
+    /* The spec says this resolves to a registration or rejects, but a
+       browser with service workers switched off by policy — and some
+       embedded web views — resolve with nothing instead. Reading
+       .waiting off that threw and turned a disabled-by-choice setting
+       into a scary console error, so check before trusting it. */
+    if (!OFF_REG) return null;
+
     /* A waiting worker means a new version of the site is cached and
        ready but the old one is still running. Say so instead of
        leaving somebody on a stale copy wondering why a fix did not
        arrive. */
     const announce = () => {
-      if (OFF_REG.waiting && navigator.serviceWorker.controller) offlineNewVersion();
+      if (OFF_REG && OFF_REG.waiting && navigator.serviceWorker.controller) offlineNewVersion();
     };
     announce();
     OFF_REG.addEventListener('updatefound', () => {

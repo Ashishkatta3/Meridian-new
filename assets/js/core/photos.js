@@ -82,17 +82,25 @@ function nameIsShared(name){
    than guessed at. Guessing is what put Colorado's red rocks on the
    Illinois page. */
 function photoTitlesIT(place){
-  try {
-    if (typeof IT_WIKI !== 'undefined' && IT_WIKI[place.id]) return [IT_WIKI[place.id]];
-  } catch(e){}
   const n = place.name;
-  const out = [n];
+  const out = [];
+  /* An override goes FIRST, not INSTEAD. Wikipedia titles are
+     case-sensitive past the first letter, so one wrong capital in the
+     list would otherwise mean that place silently never gets a
+     photograph, with no second chance. */
+  try {
+    if (typeof IT_WIKI !== 'undefined' && IT_WIKI[place.id]) out.push(IT_WIKI[place.id]);
+  } catch(e){}
+  out.push(n);
   try {
     if (typeof IT_REGIONS !== 'undefined' && IT_REGIONS[place.abbr])
       out.push(n + ', ' + IT_REGIONS[place.abbr][0]);
   } catch(e){}
   out.push(n + ', Italy', n + ' (Italy)');
-  return out;
+  /* An override often equals one of the generated candidates, and
+     asking Wikipedia the same question twice just doubles the wait
+     before the real fallback is reached. */
+  return out.filter((t, i) => t && out.indexOf(t) === i);
 }
 
 function photoTitles(place){
@@ -105,17 +113,85 @@ function photoTitles(place){
   return [n, n + ' (' + st + ')', n + ', ' + st];
 }
 
+/* Where a resolved photograph is remembered between visits.
+
+   This was sessionStorage, which empties the moment the tab closes.
+   Since none of the Italian places carry a baked-in picture, every
+   fresh visit asked Wikipedia again for every place the reader opened
+   — a round trip each, on what may be a phone with one bar in a hill
+   town. Keeping it in localStorage is what makes the second visit
+   instant, which is the whole point of pulling the pictures live
+   rather than shipping them.
+
+   A lead image does get replaced now and again, so the record is not
+   kept for ever: a month is long enough to make return visits fast
+   and short enough that a changed picture arrives on its own. */
+const PHOTO_TTL = 30 * 86400 * 1000;
+const PHOTO_KEY = 'meridian.photo.';
+
+/* localStorage first, then sessionStorage. Either can be missing or
+   throw outright — Safari in private mode, a browser with site data
+   blocked — so each is tried and neither is assumed. */
+function photoStores(){
+  const out = [];
+  try { if (window.localStorage)   out.push(window.localStorage); }   catch(e){}
+  try { if (window.sessionStorage) out.push(window.sessionStorage); } catch(e){}
+  return out;
+}
+
 function photoCached(id){
   if (PHOTO_MEM[id] !== undefined) return PHOTO_MEM[id];
-  try {
-    const raw = sessionStorage.getItem('meridian.photo.' + id);
-    if (raw) return (PHOTO_MEM[id] = JSON.parse(raw));
-  } catch(e){}
+  for (const store of photoStores()){
+    let raw = null;
+    try { raw = store.getItem(PHOTO_KEY + id); } catch(e){ continue; }
+    if (!raw) continue;
+    let rec;
+    try { rec = JSON.parse(raw); } catch(e){ continue; }
+
+    /* Records written before this cache had an expiry are bare values,
+       not { v, t } — a reader upgrading mid-session still has a pocket
+       full of them, so they are honoured rather than thrown away. */
+    if (!rec || typeof rec !== 'object' || !('t' in rec)) return (PHOTO_MEM[id] = rec);
+
+    if (Date.now() - rec.t > PHOTO_TTL){
+      try { store.removeItem(PHOTO_KEY + id); } catch(e){}
+      continue;
+    }
+    return (PHOTO_MEM[id] = rec.v);
+  }
   return undefined;
 }
+
+/* Drop every expired record. Only called when a write has already
+   failed for want of room, so the cost is paid once and only when it
+   buys something. */
+function photoPrune(store){
+  const dead = [];
+  try {
+    for (let i = 0; i < store.length; i++){
+      const k = store.key(i);
+      if (!k || k.indexOf(PHOTO_KEY) !== 0) continue;
+      let rec; try { rec = JSON.parse(store.getItem(k)); } catch(e){ dead.push(k); continue; }
+      if (rec && typeof rec === 'object' && 't' in rec && Date.now() - rec.t > PHOTO_TTL) dead.push(k);
+    }
+    dead.forEach(k => store.removeItem(k));
+  } catch(e){}
+  return dead.length;
+}
+
 function photoStore(id, val){
   PHOTO_MEM[id] = val;
-  try { sessionStorage.setItem('meridian.photo.' + id, JSON.stringify(val)); } catch(e){}
+  const rec = JSON.stringify({ v: val, t: Date.now() });
+  for (const store of photoStores()){
+    try { store.setItem(PHOTO_KEY + id, rec); return; }
+    catch(e){
+      /* out of room: clear what has expired and try this store once
+         more before falling back to the next one */
+      if (photoPrune(store)){
+        try { store.setItem(PHOTO_KEY + id, rec); return; } catch(e2){}
+      }
+    }
+  }
 }
 
 /* Returns { src, page, extract } or null. Never throws and never
@@ -192,7 +268,29 @@ function cdnImg(url, w){
    folders, which file. Every other address for the picture can be
    built from those three. */
 function wmParse(url){
-  const m = /^https?:\/\/upload\.wikimedia\.org\/wikipedia\/([a-z]+)\/([0-9a-f])\/([0-9a-f]{2})\/([^\/?#]+)$/.exec(url || '');
+  if (!url) return null;
+
+  /* Wikimedia changed two things that together broke every live photo
+     lookup, and the fix has to track both:
+
+       1. Thumbnails are now served from thumb.wikimedia.org, where for
+          years they came from upload.wikimedia.org. Both hosts appear.
+       2. The API appends a tracking query — "?utm_source=...&utm_campaign
+          =api&utm_content=thumbnail" — to every source URL.
+
+     The old regex pinned the host to upload.wikimedia.org and ended at
+     the filename with $, so a thumb.wikimedia.org URL with a ?query on
+     the end matched neither branch and parsed as null. That is what put
+     "no image" on places that plainly have one. We strip the query
+     first and accept either host; the three facts we pull out are the
+     same, and every real address is rebuilt from them.
+
+     A thumbnail  /wikipedia/commons/thumb/4/42/Name.jpg/320px-Name.jpg
+     An original  /wikipedia/commons/4/42/Name.jpg                      */
+  const clean = String(url).split(/[?#]/)[0];
+  let m = /^https?:\/\/(?:upload|thumb)\.wikimedia\.org\/wikipedia\/([a-z]+)\/thumb\/([0-9a-f])\/([0-9a-f]{2})\/([^\/]+)\/[^\/]*$/.exec(clean);
+  if (!m) m = /^https?:\/\/(?:upload|thumb)\.wikimedia\.org\/wikipedia\/([a-z]+)\/([0-9a-f])\/([0-9a-f]{2})\/([^\/]+)$/.exec(clean);
+
   if (!m) return null;
   return { proj: m[1], dir: m[2] + '/' + m[3], file: m[4],
            wiki: m[1] === 'commons' ? 'commons.wikimedia.org' : m[1] + '.wikipedia.org' };
@@ -207,6 +305,23 @@ const LOCAL_SIZES = [640, 1600];
 function localParse(url){
   const m = /^(assets\/photos\/.+)-(\d+)\.jpg$/.exec(url || '');
   return m ? { base: m[1], size: +m[2] } : null;
+}
+
+/* Not every original is something a browser can draw. Two of the US
+   photographs are TIFFs, straight off a Library of Congress scan, and
+   no browser decodes TIFF. Wikimedia does not serve one either — it
+   serves a JPEG rendering, and names it by appending .jpg to the whole
+   original filename, so the thumbnail of Savannah.tif is
+   "800px-Savannah.tif.jpg" and "800px-Savannah.tif" is a 404. An SVG
+   is the opposite case: browsers render it natively and it scales for
+   free, so it is better left alone than thumbnailed. */
+const THUMB_SUFFIX = { tif: '.jpg', tiff: '.jpg', pdf: '.jpg', djvu: '.jpg' };
+function photoExt(file){ return (String(file).split('.').pop() || '').toLowerCase(); }
+function photoDrawable(file){
+  return !THUMB_SUFFIX[photoExt(file)];       /* svg is drawable; tif is not */
+}
+function thumbLeaf(file, w){
+  return w + 'px-' + file + (THUMB_SUFFIX[photoExt(file)] || '');
 }
 
 function photoVariants(url, w){
@@ -224,15 +339,51 @@ function photoVariants(url, w){
   }
 
   const f = wmParse(url);
-  if (f && w && !/\.svg$/i.test(f.file)){
-    /* Wikimedia's own resized copy, straight from its CDN */
-    out.push(['thumb', 'https://upload.wikimedia.org/wikipedia/' + f.proj + '/thumb/'
-      + f.dir + '/' + f.file + '/' + w + 'px-' + f.file]);
-    /* the same copy, addressed the way MediaWiki itself does it */
-    out.push(['filepath', 'https://' + f.wiki + '/wiki/Special:FilePath/' + f.file + '?width=' + w]);
+
+  /* Order matters more than it looks, and getting it wrong is what
+     blanked the Italian pages twice.
+
+     The address Wikimedia itself just handed back is the one address
+     we KNOW resolves — it came from the API seconds ago. So it goes
+     first, with nothing changed but the width, and the host left
+     exactly as served. Rebuilding the path from the hash folders is a
+     guess about which CDN hostname serves thumbnails this month;
+     thumbnails moved from upload.wikimedia.org to thumb.wikimedia.org
+     once already, and a rebuilt address on the wrong host answers 400.
+     That guess therefore belongs below the known-good one, not above
+     it. */
+  /* An already-sized address is safe to offer straight; an original in
+     a format the browser cannot draw is not, so it is left out rather
+     than spent as a request that can only fail. */
+  const sized = w && /\/\d+px-/.test(url);
+  const drawable = !f || photoDrawable(f.file);
+  if (/^https?:\/\//.test(url) && !/wsrv\.nl/.test(url) && (sized || drawable)){
+    out.push(['api', sized ? url.replace(/\/\d+px-/, '/' + w + 'px-') : url]);
   }
+
+  if (f && !/\.svg$/i.test(f.file)){
+    /* MediaWiki's own canonical address. It is a redirect to wherever
+       the file actually lives, so unlike a rebuilt CDN path it keeps
+       working across a host move — and for a TIFF it is what hands
+       back a JPEG rendering. */
+    out.push(['filepath', 'https://' + f.wiki + '/wiki/Special:FilePath/'
+      + f.file + (w ? '?width=' + w : '')]);
+    /* the rebuilt CDN path, as an alternate rather than the primary */
+    if (w) out.push(['thumb', 'https://upload.wikimedia.org/wikipedia/' + f.proj
+      + '/thumb/' + f.dir + '/' + f.file + '/' + thumbLeaf(f.file, w)]);
+  }
+
+  /* The address exactly as served, unresized. It may be smaller than
+     the box wants, but it is real and it is Wikimedia's own, so a
+     slightly soft picture beats what comes next. Skipped when the
+     browser cannot draw that format at all. */
+  if (drawable && !out.some(v => v[1] === url)) out.push(['orig', url]);
+
+  /* Last, and only last: a free third-party resizer. Under load it
+     hangs instead of failing, so onerror never fires and the picture
+     is never drawn. Nothing above it may depend on it. */
   if (w && /^https?:\/\//.test(url) && !/wsrv\.nl/.test(url)) out.push(['cdn', cdnImg(url, w)]);
-  out.push(['orig', url]);
+
   return out;
 }
 
@@ -265,14 +416,34 @@ function loadImage(url, w, ok, fail){
     if (good.length) list = good.concat(list.filter(v => v[0] !== PHOTO_ROUTE));
   }
 
+  /* A source that FAILS is fine: onerror fires and the next address
+     is tried. A source that HANGS is the dangerous one — no event
+     ever arrives, and the picture is simply never drawn. A free image
+     proxy under load does exactly that, so every attempt is given a
+     deadline and the ladder moves on when it expires. */
   const img = new Image();
   img.decoding = 'async';
-  let i = 0;
-  img.onload = () => { photoRoute(list[i][0]); ok(img); };
-  img.onerror = () => {
-    if (++i < list.length){ img.src = list[i][1]; return; }
+  let i = 0, done = false, timer = null;
+
+  const stop = () => { clearTimeout(timer); timer = null; };
+  const next = () => {
+    if (done) return;
+    stop();
+    if (++i < list.length){ arm(); img.src = list[i][1]; return; }
+    done = true;
     if (fail) fail();
   };
+  const arm = () => { stop(); timer = setTimeout(next, 7000); };
+
+  img.onload = () => {
+    if (done) return;
+    done = true; stop();
+    photoRoute(list[i][0]);
+    ok(img);
+  };
+  img.onerror = next;
+
+  arm();
   img.src = list[0][1];
   return img;
 }

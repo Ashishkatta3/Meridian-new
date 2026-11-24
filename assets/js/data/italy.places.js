@@ -611,11 +611,32 @@ function itRegionPlaces(code){
 /* Is the sea close enough that waves, currents and sea temperature are
    worth asking for? Decided from the tags rather than from a separate
    flag, so adding a coastal place cannot forget to set it. */
+/* Definitely on the water — used where the answer has to be certain. */
 function itIsCoastal(p){
   if (!p) return false;
   if (['coast','beach','island'].indexOf(p.kind) !== -1) return true;
   const land = p.land || [];
   return land.indexOf('beach') !== -1 || land.indexOf('island') !== -1;
+}
+
+/* The five Italian regions with no coastline at all. */
+const IT_LANDLOCKED = { VDA: 1, PIE: 1, LOM: 1, TAA: 1, UMB: 1 };
+
+/* Might be on the water, which is a different and more useful
+   question when deciding whether to ask for a marine forecast.
+
+   A coastal CITY carries none of the beach, coast or island tags —
+   Naples is tagged "urban", and so are Genoa, Trieste, Palermo,
+   Catania and Bari. The strict test above therefore missed every
+   large port in the country, and the sea panel never appeared on the
+   Bay of Naples. The marine grid already answers an inland request
+   with every field null, and that case is handled as "not a sea", so
+   the honest thing is to ask anywhere the region actually has a
+   coast and let the forecast itself decide. */
+function itMaybeCoastal(p){
+  if (!p) return false;
+  if (itIsCoastal(p)) return true;
+  return !IT_LANDLOCKED[p.abbr];
 }
 
 /* Places where the ground itself is news. */

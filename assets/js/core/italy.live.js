@@ -296,7 +296,12 @@ async function itLiveWeather(p){
    =========================================================== */
 async function itLiveSea(p){
   if (!itLiveReady()) return null;
-  if (typeof itIsCoastal === 'function' && !itIsCoastal(p)) return null;
+  /* Ask wherever there is a coast in the region; an inland cell comes
+     back all-null and is rejected below. The stricter itIsCoastal is
+     kept as the fallback for an older data file. */
+  const near = (typeof itMaybeCoastal === 'function') ? itMaybeCoastal
+             : (typeof itIsCoastal === 'function')    ? itIsCoastal : null;
+  if (near && !near(p)) return null;
   return liveOnce('itsea.' + itKey(p), 'itsea', async () => {
     const u = 'https://marine-api.open-meteo.com/v1/marine'
       + '?latitude=' + p.lat + '&longitude=' + p.lon

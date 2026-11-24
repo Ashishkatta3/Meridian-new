@@ -136,6 +136,11 @@
   margin: 0;
   font: 400 15px/1.55 var(--sans);
   color: var(--ink-2);
+  /* The 1fr column runs the full width of the page, which on a wide
+     screen gave these rows lines of about a hundred and fifty
+     characters — twice the measure of every other paragraph on the
+     page, and the one place the eye lost its line coming back. */
+  max-width: 68ch;
 }
 @media (max-width: 560px){
   .it-prac > div{ grid-template-columns: 1fr; gap: 5px; }

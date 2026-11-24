@@ -34,7 +34,7 @@
    caches are named from it, so a new version cannot read an old
    shell — the bug where a phone holds one new file next to one old
    one is impossible by construction here. */
-const VERSION = 'v29';
+const VERSION = 'v32';
 
 const SHELL  = 'meridian-shell-'  + VERSION;
 const DATA   = 'meridian-data-'   + VERSION;
@@ -159,7 +159,12 @@ function isTile(url){
       || /tile\.|tiles\.|basemaps\.|\.tile\./.test(url.hostname);
 }
 function isPhoto(url){
-  return /upload\.wikimedia\.org|commons\.wikimedia\.org|nps\.gov.*\.(jpg|jpeg|png)|images\.openverse|mapillary/.test(url.href)
+  /* thumb.wikimedia.org is named explicitly: Wikimedia moved its
+     thumbnails there, and until it was listed a photograph only
+     landed in this cache because its path happened to end in .jpg.
+     A thumbnail of an SVG or a TIFF does not, so those were being
+     re-fetched on every single visit. */
+  return /upload\.wikimedia\.org|thumb\.wikimedia\.org|commons\.wikimedia\.org|nps\.gov.*\.(jpg|jpeg|png)|images\.openverse|mapillary/.test(url.href)
       || /\.(jpg|jpeg|png|webp|avif)$/i.test(url.pathname);
 }
 /* Live data must never be served from a cache. Weather from
