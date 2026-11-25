@@ -19,7 +19,7 @@
 <!-- Installable: on a phone this adds Meridian to the home screen and it
      opens without browser chrome, which with the service worker below
      means it works in a canyon with no signal. -->
-<link rel="manifest" href="manifest.webmanifest?v=32">
+<link rel="manifest" href="manifest.webmanifest?v=33">
 <meta name="theme-color" content="#F7F5EF" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#11140F" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -29,14 +29,14 @@
 
 <!-- Stylesheets are split by concern. Bump ?v= on every deploy or a
      phone will hold an old copy of one file next to a new copy of another. -->
-<link rel="stylesheet" href="assets/css/tokens.css?v=32">
-<link rel="stylesheet" href="assets/css/base.css?v=32">
-<link rel="stylesheet" href="assets/css/map.css?v=32">
-<link rel="stylesheet" href="assets/css/place.css?v=32">
-<link rel="stylesheet" href="assets/css/home.css?v=32">
-<link rel="stylesheet" href="assets/css/pages.css?v=32">
-<link rel="stylesheet" href="assets/css/sheet.css?v=32">
-<link rel="stylesheet" href="assets/css/italy.css?v=32">
+<link rel="stylesheet" href="assets/css/tokens.css?v=33">
+<link rel="stylesheet" href="assets/css/base.css?v=33">
+<link rel="stylesheet" href="assets/css/map.css?v=33">
+<link rel="stylesheet" href="assets/css/place.css?v=33">
+<link rel="stylesheet" href="assets/css/home.css?v=33">
+<link rel="stylesheet" href="assets/css/pages.css?v=33">
+<link rel="stylesheet" href="assets/css/sheet.css?v=33">
+<link rel="stylesheet" href="assets/css/italy.css?v=33">
 </head>
 <body>
 
@@ -50,6 +50,7 @@
     <a href="#/"        data-nav="home">Home</a>
     <a href="#/map"     data-nav="map">The map</a>
     <a href="#/italy"   data-nav="italy">Italy</a>
+    <a href="#/costarica" data-nav="costarica">Costa Rica</a>
     <a href="#/trips"   data-nav="trips">Trips</a>
     <a href="#/planner" data-nav="planner">Plan a trip</a>
     <a href="#/account" data-nav="account" id="acLink">Account</a>
@@ -125,6 +126,7 @@
       <h2>Explore</h2>
       <a href="#/map">The map</a>
       <a href="#/italy">Italy</a>
+      <a href="#/costarica">Costa Rica</a>
       <a href="#/">Place of the week</a>
       <a href="#/trips">Bucket list</a>
     </div>
@@ -154,56 +156,60 @@
 
 <!-- Load order matters: vocabulary, then data, then the pieces that
      read it, then boot. geo.us.js is generated; the rest is hand-edited. -->
-<script src="assets/js/data/taxonomy.js?v=32"></script>
-<script src="assets/js/data/places.js?v=32"></script>
-<script src="assets/js/data/spots.js?v=32"></script>
-<script src="assets/js/data/food.js?v=32"></script>
-<script src="assets/js/data/info.js?v=32"></script>
-<script src="assets/js/data/photos.js?v=32"></script>
-<script src="assets/js/data/roadtrips.js?v=32"></script>
-<script src="assets/js/data/bucket.js?v=32"></script>
-<script src="assets/js/data/longform.cities.js?v=32"></script>
-<script src="assets/js/data/longform.parks.js?v=32"></script>
-<script src="assets/js/data/longform.js?v=32"></script>
-<script src="assets/js/data/geo.us.js?v=32"></script>
-<script src="assets/js/data/italy.places.js?v=32"></script>
-<script src="assets/js/data/italy.guide.js?v=32"></script>
+<script src="assets/js/data/taxonomy.js?v=33"></script>
+<script src="assets/js/data/places.js?v=33"></script>
+<script src="assets/js/data/spots.js?v=33"></script>
+<script src="assets/js/data/food.js?v=33"></script>
+<script src="assets/js/data/info.js?v=33"></script>
+<script src="assets/js/data/photos.js?v=33"></script>
+<script src="assets/js/data/roadtrips.js?v=33"></script>
+<script src="assets/js/data/bucket.js?v=33"></script>
+<script src="assets/js/data/longform.cities.js?v=33"></script>
+<script src="assets/js/data/longform.parks.js?v=33"></script>
+<script src="assets/js/data/longform.js?v=33"></script>
+<script src="assets/js/data/geo.us.js?v=33"></script>
+<script src="assets/js/data/italy.places.js?v=33"></script>
+<script src="assets/js/data/italy.guide.js?v=33"></script>
+<script src="assets/js/data/cr.places.js?v=33"></script>
+<script src="assets/js/data/cr.guide.js?v=33"></script>
 
-<script src="assets/js/core/config.js?v=32"></script>
-<script src="assets/js/core/auth.js?v=32"></script>
-<script src="assets/js/core/sun.js?v=32"></script>
-<script src="assets/js/core/events.js?v=32"></script>
-<script src="assets/js/core/search.js?v=32"></script>
-<script src="assets/js/core/state.js?v=32"></script>
-<script src="assets/js/core/geo.js?v=32"></script>
-<script src="assets/js/core/tags.js?v=32"></script>
-<script src="assets/js/core/itin.js?v=32"></script>
-<script src="assets/js/core/stops.js?v=32"></script>
-<script src="assets/js/core/pick.js?v=32"></script>
-<script src="assets/js/core/trips.js?v=32"></script>
-<script src="assets/js/core/cloud.js?v=32"></script>
-<script src="assets/js/core/share.js?v=32"></script>
-<script src="assets/js/core/photos.js?v=32"></script>
-<script src="assets/js/core/live.js?v=32"></script>
-<script src="assets/js/core/italy.live.js?v=32"></script>
-<script src="assets/js/core/offline.js?v=32"></script>
+<script src="assets/js/core/config.js?v=33"></script>
+<script src="assets/js/core/auth.js?v=33"></script>
+<script src="assets/js/core/sun.js?v=33"></script>
+<script src="assets/js/core/events.js?v=33"></script>
+<script src="assets/js/core/search.js?v=33"></script>
+<script src="assets/js/core/state.js?v=33"></script>
+<script src="assets/js/core/geo.js?v=33"></script>
+<script src="assets/js/core/tags.js?v=33"></script>
+<script src="assets/js/core/itin.js?v=33"></script>
+<script src="assets/js/core/stops.js?v=33"></script>
+<script src="assets/js/core/pick.js?v=33"></script>
+<script src="assets/js/core/trips.js?v=33"></script>
+<script src="assets/js/core/cloud.js?v=33"></script>
+<script src="assets/js/core/share.js?v=33"></script>
+<script src="assets/js/core/photos.js?v=33"></script>
+<script src="assets/js/core/live.js?v=33"></script>
+<script src="assets/js/core/italy.live.js?v=33"></script>
+<script src="assets/js/core/cr.live.js?v=33"></script>
+<script src="assets/js/core/offline.js?v=33"></script>
 
-<script src="assets/js/map/icons.js?v=32"></script>
-<script src="assets/js/map/usmap.js?v=32"></script>
-<script src="assets/js/map/mini.js?v=32"></script>
-<script src="assets/js/map/tiles.js?v=32"></script>
+<script src="assets/js/map/icons.js?v=33"></script>
+<script src="assets/js/map/usmap.js?v=33"></script>
+<script src="assets/js/map/mini.js?v=33"></script>
+<script src="assets/js/map/tiles.js?v=33"></script>
 
-<script src="assets/js/pages/place.js?v=32"></script>
-<script src="assets/js/pages/home.js?v=32"></script>
-<script src="assets/js/pages/planner.js?v=32"></script>
-<script src="assets/js/pages/trips.js?v=32"></script>
-<script src="assets/js/pages/states.js?v=32"></script>
-<script src="assets/js/pages/account.js?v=32"></script>
-<script src="assets/js/pages/welcome.js?v=32"></script>
-<script src="assets/js/pages/sheet.js?v=32"></script>
-<script src="assets/js/pages/italy.js?v=32"></script>
+<script src="assets/js/pages/place.js?v=33"></script>
+<script src="assets/js/pages/home.js?v=33"></script>
+<script src="assets/js/pages/planner.js?v=33"></script>
+<script src="assets/js/pages/trips.js?v=33"></script>
+<script src="assets/js/pages/states.js?v=33"></script>
+<script src="assets/js/pages/account.js?v=33"></script>
+<script src="assets/js/pages/welcome.js?v=33"></script>
+<script src="assets/js/pages/sheet.js?v=33"></script>
+<script src="assets/js/pages/italy.js?v=33"></script>
+<script src="assets/js/pages/cr.js?v=33"></script>
 
-<script src="assets/js/app.js?v=32"></script>
-<script src="assets/js/core/router.js?v=32"></script>
+<script src="assets/js/app.js?v=33"></script>
+<script src="assets/js/core/router.js?v=33"></script>
 </body>
 </html>

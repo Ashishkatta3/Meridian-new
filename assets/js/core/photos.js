@@ -103,8 +103,39 @@ function photoTitlesIT(place){
   return out.filter((t, i) => t && out.indexOf(t) === i);
 }
 
+/* Costa Rica, where the name collisions are worse than Italy's.
+
+   Three things differ from the Italian resolver. The display name is
+   not always a title: two beaches really are called Playa Hermosa, so
+   the atlas disambiguates them for the reader — "Playa Hermosa (Jacó)"
+   — and that parenthetical is ours, not Wikipedia's, so it comes off
+   before the name is used as a lookup. Protected areas are filed
+   under their full title far more often than Italian ones ("Carara
+   National Park", not "Carara"). And a beach is usually filed with
+   its Playa prefix even when everyone drops it in speech. */
+function photoTitlesCR(place){
+  const n = String(place.name || '').replace(/\s*\([^)]*\)\s*$/, '').trim();
+  const out = [];
+  /* An override goes FIRST, not INSTEAD — same reason as Italy: one
+     wrong capital in the list would otherwise mean that place never
+     gets a photograph at all, with no second chance. */
+  try {
+    if (typeof CR_WIKI !== 'undefined' && CR_WIKI[place.id]) out.push(CR_WIKI[place.id]);
+  } catch(e){}
+  out.push(n);
+  if (place.kind === 'np'      && !/National Park$/.test(n)) out.push(n + ' National Park');
+  if (place.kind === 'volcano' && !/Volcano/.test(n))
+    out.push(n + ' Volcano', n + ' Volcano National Park');
+  if (place.kind === 'refuge'  && !/Refuge$/.test(n))  out.push(n + ' Wildlife Refuge');
+  if (place.kind === 'reserve' && !/Reserve$/.test(n)) out.push(n + ' Biological Reserve');
+  if (place.kind === 'beach'   && !/^Playa /.test(n))  out.push('Playa ' + n);
+  out.push(n + ', Costa Rica', n + ' (Costa Rica)');
+  return out.filter((t, i) => t && out.indexOf(t) === i);
+}
+
 function photoTitles(place){
   if (place && place.country === 'IT') return photoTitlesIT(place);
+  if (place && place.country === 'CR') return photoTitlesCR(place);
   const st = STATE_FULL[place.abbr] || place.abbr;
   const n  = place.name;
   /* Shared name: qualify first, bare name only as a last resort. */

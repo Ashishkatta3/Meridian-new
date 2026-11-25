@@ -34,7 +34,7 @@
    caches are named from it, so a new version cannot read an old
    shell — the bug where a phone holds one new file next to one old
    one is impossible by construction here. */
-const VERSION = 'v32';
+const VERSION = 'v33';
 
 const SHELL  = 'meridian-shell-'  + VERSION;
 const DATA   = 'meridian-data-'   + VERSION;

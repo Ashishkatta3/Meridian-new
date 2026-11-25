@@ -93,6 +93,26 @@
       mountItaly(page); view('italy'); return;
     }
 
+    /* ---- Costa Rica ----
+       Same ordering rule as Italy: the longer paths are matched before
+       the bare country route, and all three before #/map and #/state.
+       The region pattern is anchored to exactly three letters so that
+       "/costarica/place/..." cannot be caught by it. */
+    m = hash.match(/^\/costarica\/place\/(.+)$/);
+    if (m && typeof mountCrPlace === 'function'){
+      const pid = decodeURIComponent(m[1]);
+      if (typeof crPlaceGet === 'function' && crPlaceGet(pid)){
+        mountCrPlace(page, pid); view('costarica'); return;
+      }
+    }
+    m = hash.match(/^\/costarica\/region\/([A-Za-z]{3})$/);
+    if (m && typeof mountCrRegion === 'function'){
+      mountCrRegion(page, m[1].toUpperCase()); view('costarica'); return;
+    }
+    if (hash === '/costarica' && typeof mountCostaRica === 'function'){
+      mountCostaRica(page); view('costarica'); return;
+    }
+
     if (hash === '/map' && typeof mountMapPage === 'function'){
       mountMapPage(page); view('map'); return;
     }
