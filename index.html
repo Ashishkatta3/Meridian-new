@@ -6,7 +6,7 @@
 <!-- One title for every route, so it cannot claim the site is only
      about one country while an Italian page is on screen. -->
 <title>Meridian — a travel atlas</title>
-<meta name="description" content="A personal travel atlas: every park, city and shore in the United States worth the drive, and 177 places across the twenty regions of Italy — what to do in each, and a map of the ones you have been to.">
+<meta name="description" content="A personal travel atlas: every park, city and shore in the United States worth the drive, plus Italy, Costa Rica and India — what to do in each, when to go, and a map of the ones you have been to.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- Loaded without blocking the first paint: a stylesheet in the head
@@ -19,7 +19,7 @@
 <!-- Installable: on a phone this adds Meridian to the home screen and it
      opens without browser chrome, which with the service worker below
      means it works in a canyon with no signal. -->
-<link rel="manifest" href="manifest.webmanifest?v=33">
+<link rel="manifest" href="manifest.webmanifest?v=35">
 <meta name="theme-color" content="#F7F5EF" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#11140F" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -29,14 +29,14 @@
 
 <!-- Stylesheets are split by concern. Bump ?v= on every deploy or a
      phone will hold an old copy of one file next to a new copy of another. -->
-<link rel="stylesheet" href="assets/css/tokens.css?v=33">
-<link rel="stylesheet" href="assets/css/base.css?v=33">
-<link rel="stylesheet" href="assets/css/map.css?v=33">
-<link rel="stylesheet" href="assets/css/place.css?v=33">
-<link rel="stylesheet" href="assets/css/home.css?v=33">
-<link rel="stylesheet" href="assets/css/pages.css?v=33">
-<link rel="stylesheet" href="assets/css/sheet.css?v=33">
-<link rel="stylesheet" href="assets/css/italy.css?v=33">
+<link rel="stylesheet" href="assets/css/tokens.css?v=35">
+<link rel="stylesheet" href="assets/css/base.css?v=35">
+<link rel="stylesheet" href="assets/css/map.css?v=35">
+<link rel="stylesheet" href="assets/css/place.css?v=35">
+<link rel="stylesheet" href="assets/css/home.css?v=35">
+<link rel="stylesheet" href="assets/css/pages.css?v=35">
+<link rel="stylesheet" href="assets/css/sheet.css?v=35">
+<link rel="stylesheet" href="assets/css/italy.css?v=35">
 </head>
 <body>
 
@@ -51,6 +51,7 @@
     <a href="#/map"     data-nav="map">The map</a>
     <a href="#/italy"   data-nav="italy">Italy</a>
     <a href="#/costarica" data-nav="costarica">Costa Rica</a>
+    <a href="#/india"   data-nav="india">India</a>
     <a href="#/trips"   data-nav="trips">Trips</a>
     <a href="#/planner" data-nav="planner">Plan a trip</a>
     <a href="#/account" data-nav="account" id="acLink">Account</a>
@@ -114,11 +115,13 @@
       <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3v18"/><path d="M4.2 7.5h15.6M4.2 16.5h15.6"/></svg>
       MERIDIAN
     </a>
-    <!-- This footer is on every route, Italian pages included, so it
-         describes the whole atlas rather than only the US half. -->
+    <!-- This footer is on every route, so it describes the whole atlas
+         rather than only the US half. Update the counts when a country
+         is added; dataintegrity.js asserts they match the data. -->
     <p>A travel atlas — four hundred parks, cities and shores across the United
-       States, and 177 places across the twenty regions of Italy. What to do in
-       each, and a map of the ones you have been to.</p>
+       States, 177 places across the twenty regions of Italy, 113 across Costa
+       Rica and 305 across India. What to do in each, and a map of the ones you
+       have been to.</p>
   </div>
 
   <nav class="foot-cols" aria-label="Footer">
@@ -127,6 +130,7 @@
       <a href="#/map">The map</a>
       <a href="#/italy">Italy</a>
       <a href="#/costarica">Costa Rica</a>
+      <a href="#/india">India</a>
       <a href="#/">Place of the week</a>
       <a href="#/trips">Bucket list</a>
     </div>
@@ -156,60 +160,67 @@
 
 <!-- Load order matters: vocabulary, then data, then the pieces that
      read it, then boot. geo.us.js is generated; the rest is hand-edited. -->
-<script src="assets/js/data/taxonomy.js?v=33"></script>
-<script src="assets/js/data/places.js?v=33"></script>
-<script src="assets/js/data/spots.js?v=33"></script>
-<script src="assets/js/data/food.js?v=33"></script>
-<script src="assets/js/data/info.js?v=33"></script>
-<script src="assets/js/data/photos.js?v=33"></script>
-<script src="assets/js/data/roadtrips.js?v=33"></script>
-<script src="assets/js/data/bucket.js?v=33"></script>
-<script src="assets/js/data/longform.cities.js?v=33"></script>
-<script src="assets/js/data/longform.parks.js?v=33"></script>
-<script src="assets/js/data/longform.js?v=33"></script>
-<script src="assets/js/data/geo.us.js?v=33"></script>
-<script src="assets/js/data/italy.places.js?v=33"></script>
-<script src="assets/js/data/italy.guide.js?v=33"></script>
-<script src="assets/js/data/cr.places.js?v=33"></script>
-<script src="assets/js/data/cr.guide.js?v=33"></script>
+<script src="assets/js/data/taxonomy.js?v=35"></script>
+<script src="assets/js/data/places.js?v=35"></script>
+<script src="assets/js/data/spots.js?v=35"></script>
+<script src="assets/js/data/food.js?v=35"></script>
+<script src="assets/js/data/info.js?v=35"></script>
+<script src="assets/js/data/photos.js?v=35"></script>
+<script src="assets/js/data/roadtrips.js?v=35"></script>
+<script src="assets/js/data/bucket.js?v=35"></script>
+<script src="assets/js/data/longform.cities.js?v=35"></script>
+<script src="assets/js/data/longform.parks.js?v=35"></script>
+<script src="assets/js/data/longform.js?v=35"></script>
+<script src="assets/js/data/geo.us.js?v=35"></script>
+<script src="assets/js/data/italy.places.js?v=35"></script>
+<script src="assets/js/data/cr.places.js?v=35"></script>
+<script src="assets/js/data/in.places.js?v=35"></script>
 
-<script src="assets/js/core/config.js?v=33"></script>
-<script src="assets/js/core/auth.js?v=33"></script>
-<script src="assets/js/core/sun.js?v=33"></script>
-<script src="assets/js/core/events.js?v=33"></script>
-<script src="assets/js/core/search.js?v=33"></script>
-<script src="assets/js/core/state.js?v=33"></script>
-<script src="assets/js/core/geo.js?v=33"></script>
-<script src="assets/js/core/tags.js?v=33"></script>
-<script src="assets/js/core/itin.js?v=33"></script>
-<script src="assets/js/core/stops.js?v=33"></script>
-<script src="assets/js/core/pick.js?v=33"></script>
-<script src="assets/js/core/trips.js?v=33"></script>
-<script src="assets/js/core/cloud.js?v=33"></script>
-<script src="assets/js/core/share.js?v=33"></script>
-<script src="assets/js/core/photos.js?v=33"></script>
-<script src="assets/js/core/live.js?v=33"></script>
-<script src="assets/js/core/italy.live.js?v=33"></script>
-<script src="assets/js/core/cr.live.js?v=33"></script>
-<script src="assets/js/core/offline.js?v=33"></script>
+<!-- The three guide files (Italy, Costa Rica, India: over a megabyte
+     of prose between them) are NOT loaded here. core/lazy.js fetches
+     each one the first time a place page for that country is opened,
+     and the country index warms it in the background. -->
 
-<script src="assets/js/map/icons.js?v=33"></script>
-<script src="assets/js/map/usmap.js?v=33"></script>
-<script src="assets/js/map/mini.js?v=33"></script>
-<script src="assets/js/map/tiles.js?v=33"></script>
+<script src="assets/js/core/lazy.js?v=35"></script>
+<script src="assets/js/core/config.js?v=35"></script>
+<script src="assets/js/core/auth.js?v=35"></script>
+<script src="assets/js/core/sun.js?v=35"></script>
+<script src="assets/js/core/events.js?v=35"></script>
+<script src="assets/js/core/search.js?v=35"></script>
+<script src="assets/js/core/state.js?v=35"></script>
+<script src="assets/js/core/geo.js?v=35"></script>
+<script src="assets/js/core/tags.js?v=35"></script>
+<script src="assets/js/core/itin.js?v=35"></script>
+<script src="assets/js/core/stops.js?v=35"></script>
+<script src="assets/js/core/pick.js?v=35"></script>
+<script src="assets/js/core/trips.js?v=35"></script>
+<script src="assets/js/core/cloud.js?v=35"></script>
+<script src="assets/js/core/share.js?v=35"></script>
+<script src="assets/js/core/photos.js?v=35"></script>
+<script src="assets/js/core/live.js?v=35"></script>
+<script src="assets/js/core/italy.live.js?v=35"></script>
+<script src="assets/js/core/cr.live.js?v=35"></script>
+<script src="assets/js/core/in.live.js?v=35"></script>
+<script src="assets/js/core/offline.js?v=35"></script>
 
-<script src="assets/js/pages/place.js?v=33"></script>
-<script src="assets/js/pages/home.js?v=33"></script>
-<script src="assets/js/pages/planner.js?v=33"></script>
-<script src="assets/js/pages/trips.js?v=33"></script>
-<script src="assets/js/pages/states.js?v=33"></script>
-<script src="assets/js/pages/account.js?v=33"></script>
-<script src="assets/js/pages/welcome.js?v=33"></script>
-<script src="assets/js/pages/sheet.js?v=33"></script>
-<script src="assets/js/pages/italy.js?v=33"></script>
-<script src="assets/js/pages/cr.js?v=33"></script>
+<script src="assets/js/map/icons.js?v=35"></script>
+<script src="assets/js/map/usmap.js?v=35"></script>
+<script src="assets/js/map/mini.js?v=35"></script>
+<script src="assets/js/map/tiles.js?v=35"></script>
 
-<script src="assets/js/app.js?v=33"></script>
-<script src="assets/js/core/router.js?v=33"></script>
+<script src="assets/js/pages/place.js?v=35"></script>
+<script src="assets/js/pages/home.js?v=35"></script>
+<script src="assets/js/pages/planner.js?v=35"></script>
+<script src="assets/js/pages/trips.js?v=35"></script>
+<script src="assets/js/pages/states.js?v=35"></script>
+<script src="assets/js/pages/account.js?v=35"></script>
+<script src="assets/js/pages/welcome.js?v=35"></script>
+<script src="assets/js/pages/sheet.js?v=35"></script>
+<script src="assets/js/pages/italy.js?v=35"></script>
+<script src="assets/js/pages/cr.js?v=35"></script>
+<script src="assets/js/pages/in.js?v=35"></script>
+
+<script src="assets/js/app.js?v=35"></script>
+<script src="assets/js/core/router.js?v=35"></script>
 </body>
 </html>

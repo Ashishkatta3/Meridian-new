@@ -113,6 +113,22 @@
       mountCostaRica(page); view('costarica'); return;
     }
 
+    /* ---- India ---- */
+    m = hash.match(/^\/india\/place\/(.+)$/);
+    if (m && typeof mountInPlace === 'function'){
+      const pid = decodeURIComponent(m[1]);
+      if (typeof inPlaceGet === 'function' && inPlaceGet(pid)){
+        mountInPlace(page, pid); view('india'); return;
+      }
+    }
+    m = hash.match(/^\/india\/region\/([A-Za-z]{3})$/);
+    if (m && typeof mountInRegion === 'function'){
+      mountInRegion(page, m[1].toUpperCase()); view('india'); return;
+    }
+    if (hash === '/india' && typeof mountIndia === 'function'){
+      mountIndia(page); view('india'); return;
+    }
+
     if (hash === '/map' && typeof mountMapPage === 'function'){
       mountMapPage(page); view('map'); return;
     }

@@ -34,7 +34,7 @@
    caches are named from it, so a new version cannot read an old
    shell — the bug where a phone holds one new file next to one old
    one is impossible by construction here. */
-const VERSION = 'v33';
+const VERSION = 'v35';
 
 const SHELL  = 'meridian-shell-'  + VERSION;
 const DATA   = 'meridian-data-'   + VERSION;
@@ -79,6 +79,9 @@ const SHELL_FILES = [
   'assets/js/core/photos.js',
   'assets/js/core/live.js',
   'assets/js/core/italy.live.js',
+  'assets/js/core/cr.live.js',
+  'assets/js/core/in.live.js',
+  'assets/js/core/lazy.js',
   'assets/js/core/offline.js',
 
   'assets/js/map/icons.js',
@@ -95,6 +98,17 @@ const SHELL_FILES = [
   'assets/js/pages/welcome.js',
   'assets/js/pages/sheet.js',
   'assets/js/pages/italy.js',
+  'assets/js/pages/cr.js',
+  'assets/js/pages/in.js',
+
+
+  /* Country data. The guide files are deliberately absent: they
+     are fetched on demand by core/lazy.js and land in the data
+     cache through the normal fetch handler, so a visitor who
+     never opens India never downloads half a megabyte of it. */
+  'assets/js/data/italy.places.js',
+  'assets/js/data/cr.places.js',
+  'assets/js/data/in.places.js',
 
   'assets/js/app.js',
   'assets/js/core/router.js'

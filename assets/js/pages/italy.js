@@ -78,6 +78,9 @@ function itCard(id, showRegion){
 }
 
 function mountItaly(host){
+  /* A place page is the likely next click; start the guide
+     fetch now so it overlaps with reading this one. */
+  if (typeof guideWarm === 'function') guideWarm('IT');
   host.innerHTML = renderItaly();
   window.scrollTo(0, 0);
   itPaintPhotos(host);
@@ -112,6 +115,9 @@ function renderItRegion(code){
 }
 
 function mountItRegion(host, code){
+  /* A place page is the likely next click; start the guide
+     fetch now so it overlaps with reading this one. */
+  if (typeof guideWarm === 'function') guideWarm('IT');
   host.innerHTML = renderItRegion(code);
   window.scrollTo(0, 0);
   itPaintPhotos(host);
@@ -203,7 +209,10 @@ function itTagLabel(t){
   return t;
 }
 
-function mountItPlace(host, id){
+/* See the note in pages/in.js: the guide file is fetched on demand,
+   awaited once, then cached for the rest of the session. */
+async function mountItPlace(host, id){
+  if (typeof guideReady === 'function') await guideReady('IT');
   host.innerHTML = renderItPlace(id);
   window.scrollTo(0, 0);
   itPaintPhotos(host);

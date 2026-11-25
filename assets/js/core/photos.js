@@ -133,9 +133,58 @@ function photoTitlesCR(place){
   return out.filter((t, i) => t && out.indexOf(t) === i);
 }
 
+/* India, where the atlas name and the article title part company more
+   often than anywhere else in this project.
+
+   Three things this resolver does that the others do not. Several
+   entries deliberately pair two places on one card — "Belur &
+   Halebidu", "Mathura & Vrindavan" — which helps a reader and is not
+   a title, so each half is offered separately. The better-known name
+   is often the one in brackets, not the one outside it: a picture of
+   "Alappuzha (Alleppey)" is far more likely to be filed under
+   Alleppey, so both are tried. And protected areas are almost always
+   filed under a full title, which is generated from the kind rather
+   than listed one park at a time. */
+function photoTitlesIN(place){
+  const raw = String(place.name || '').trim();
+  const out = [];
+  try {
+    if (typeof IN_WIKI !== 'undefined' && IN_WIKI[place.id]) out.push(IN_WIKI[place.id]);
+  } catch(e){}
+
+  /* "Alappuzha (Alleppey)" -> both halves, outer name first */
+  const paren = /^(.+?)\s*\(([^)]+)\)\s*$/.exec(raw);
+  const bare  = paren ? paren[1].trim() : raw;
+  const alt   = paren ? paren[2].trim() : '';
+
+  /* "Belur & Halebidu" -> each on its own; "the" dropped from
+     "Kasol & the Parvati Valley" */
+  const parts = bare.split(/\s*&\s*/).map(s => s.replace(/^the\s+/i, '').trim());
+  parts.forEach(s => s && out.push(s));
+  if (alt) out.push(alt);
+
+  const n = parts[0] || bare;
+  if (place.kind === 'np'        && !/National Park$/.test(n)) out.push(n + ' National Park');
+  if (place.kind === 'sanctuary' && !/Sanctuary$/.test(n))     out.push(n + ' Wildlife Sanctuary');
+  if (place.kind === 'temple'    && !/Temple$/.test(n))        out.push(n + ' Temple');
+  if (place.kind === 'fort'      && !/Fort$/.test(n))          out.push(n + ' Fort');
+  if (place.kind === 'monastery' && !/Monastery$/.test(n))     out.push(n + ' Monastery');
+  if (place.kind === 'cave'      && !/Caves$/.test(n))         out.push(n + ' Caves');
+  if (place.kind === 'falls'     && !/Falls$/.test(n))         out.push(n + ' Falls');
+  if (place.kind === 'palace'    && !/Palace$/.test(n))        out.push(n + ' Palace');
+
+  try {
+    if (typeof IN_REGIONS !== 'undefined' && IN_REGIONS[place.abbr])
+      out.push(n + ', ' + IN_REGIONS[place.abbr][0]);
+  } catch(e){}
+  out.push(n + ', India', n + ' (India)');
+  return out.filter((t, i) => t && out.indexOf(t) === i);
+}
+
 function photoTitles(place){
   if (place && place.country === 'IT') return photoTitlesIT(place);
   if (place && place.country === 'CR') return photoTitlesCR(place);
+  if (place && place.country === 'IN') return photoTitlesIN(place);
   const st = STATE_FULL[place.abbr] || place.abbr;
   const n  = place.name;
   /* Shared name: qualify first, bare name only as a last resort. */

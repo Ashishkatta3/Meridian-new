@@ -78,6 +78,9 @@ function crCard(id, showRegion){
 }
 
 function mountCostaRica(host){
+  /* A place page is the likely next click; start the guide
+     fetch now so it overlaps with reading this one. */
+  if (typeof guideWarm === 'function') guideWarm('CR');
   host.innerHTML = renderCostaRica();
   window.scrollTo(0, 0);
   crPaintPhotos(host);
@@ -113,6 +116,9 @@ function renderCrRegion(code){
 }
 
 function mountCrRegion(host, code){
+  /* A place page is the likely next click; start the guide
+     fetch now so it overlaps with reading this one. */
+  if (typeof guideWarm === 'function') guideWarm('CR');
   host.innerHTML = renderCrRegion(code);
   window.scrollTo(0, 0);
   crPaintPhotos(host);
@@ -204,7 +210,10 @@ function crTagLabel(t){
   return t;
 }
 
-function mountCrPlace(host, id){
+/* See the note in pages/in.js: the guide file is fetched on demand,
+   awaited once, then cached for the rest of the session. */
+async function mountCrPlace(host, id){
+  if (typeof guideReady === 'function') await guideReady('CR');
   host.innerHTML = renderCrPlace(id);
   window.scrollTo(0, 0);
   crPaintPhotos(host);
