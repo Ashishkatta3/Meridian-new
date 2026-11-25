@@ -154,6 +154,54 @@
       mountJapan(page); view('japan'); return;
     }
 
+    /* ---- Spain ---- */
+    m = hash.match(/^\/spain\/place\/(.+)$/);
+    if (m && typeof mountEsPlace === 'function'){
+      const pid = decodeURIComponent(m[1]);
+      if (typeof esPlaceGet === 'function' && esPlaceGet(pid)){
+        mountEsPlace(page, pid); view('spain'); return;
+      }
+    }
+    m = hash.match(/^\/spain\/region\/([A-Za-z]{3})$/);
+    if (m && typeof mountEsRegion === 'function'){
+      mountEsRegion(page, m[1].toUpperCase()); view('spain'); return;
+    }
+    if (hash === '/spain' && typeof mountSpain === 'function'){
+      mountSpain(page); view('spain'); return;
+    }
+
+    /* ---- Egypt ---- */
+    m = hash.match(/^\/egypt\/place\/(.+)$/);
+    if (m && typeof mountEgPlace === 'function'){
+      const pid = decodeURIComponent(m[1]);
+      if (typeof egPlaceGet === 'function' && egPlaceGet(pid)){
+        mountEgPlace(page, pid); view('egypt'); return;
+      }
+    }
+    m = hash.match(/^\/egypt\/region\/([A-Za-z]{3})$/);
+    if (m && typeof mountEgRegion === 'function'){
+      mountEgRegion(page, m[1].toUpperCase()); view('egypt'); return;
+    }
+    if (hash === '/egypt' && typeof mountEgypt === 'function'){
+      mountEgypt(page); view('egypt'); return;
+    }
+
+    /* ---- Iceland ---- */
+    m = hash.match(/^\/iceland\/place\/(.+)$/);
+    if (m && typeof mountIsPlace === 'function'){
+      const pid = decodeURIComponent(m[1]);
+      if (typeof isPlaceGet === 'function' && isPlaceGet(pid)){
+        mountIsPlace(page, pid); view('iceland'); return;
+      }
+    }
+    m = hash.match(/^\/iceland\/region\/([A-Za-z]{3})$/);
+    if (m && typeof mountIsRegion === 'function'){
+      mountIsRegion(page, m[1].toUpperCase()); view('iceland'); return;
+    }
+    if (hash === '/iceland' && typeof mountIceland === 'function'){
+      mountIceland(page); view('iceland'); return;
+    }
+
     if (hash === '/map' && typeof mountMapPage === 'function'){
       mountMapPage(page); view('map'); return;
     }

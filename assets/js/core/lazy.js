@@ -71,7 +71,10 @@ const GUIDE_SRC = {
   IT: 'assets/js/data/italy.guide.js',
   CR: 'assets/js/data/cr.guide.js',
   IN: 'assets/js/data/in.guide.js',
-  JP: 'assets/js/data/jp.guide.js'
+  JP: 'assets/js/data/jp.guide.js',
+  ES: 'assets/js/data/es.guide.js',
+  EG: 'assets/js/data/eg.guide.js',
+  IS: 'assets/js/data/is.guide.js'
 };
 
 /* Awaited by a country's place page before it renders. Returns

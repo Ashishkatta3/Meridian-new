@@ -237,11 +237,135 @@ function photoTitlesJP(place){
   return out.filter((t, i) => t && out.indexOf(t) === i);
 }
 
+/* Spain. The display name often carries a disambiguator this atlas
+   added for the reader ("Nerja & Frigiliana"), an ampersand joining
+   two places, or a regional-language form. Wikipedia files Spanish
+   places under a mix of Spanish, Catalan, Basque and Galician
+   titles, which is why the override map carries most of the load
+   and the generated fallbacks are deliberately generous. */
+function photoTitlesES(place){
+  const raw = String(place.name || '').trim();
+  const out = [];
+  try {
+    if (typeof ES_WIKI !== 'undefined' && ES_WIKI[place.id]) out.push(ES_WIKI[place.id]);
+  } catch(e){}
+
+  const paren = /^(.+?)\s*\(([^)]+)\)\s*$/.exec(raw);
+  const bare  = paren ? paren[1].trim() : raw;
+  const alt   = paren ? paren[2].trim() : '';
+
+  /* "Úbeda & Baeza" is two towns; either article will do. */
+  const parts = bare.split(/\s*&\s*/).map(x => x.replace(/^the\s+/i, '').trim());
+  parts.forEach(x => x && out.push(x));
+  if (alt) out.push(alt);
+
+  const n = parts[0] || bare;
+  if (place.kind === 'np'        && !/National Park$/i.test(n)) out.push(n + ' National Park');
+  if (place.kind === 'park'      && !/Park$/i.test(n))          out.push(n + ' Natural Park');
+  if (place.kind === 'cathedral' && !/Cathedral/i.test(n))      out.push(n + ' Cathedral');
+  if (place.kind === 'castle'    && !/Castle|Alc[áa]zar/i.test(n)) out.push('Castle of ' + n);
+  if (place.kind === 'monastery' && !/Monastery/i.test(n))      out.push('Monastery of ' + n);
+  if (place.kind === 'sierra'    && !/^Sierra/i.test(n))        out.push('Sierra de ' + n);
+  if (place.kind === 'beach'     && !/^Playa|Beach/i.test(n))   out.push('Playa de ' + n);
+  if (place.kind === 'island'    && !/island|isla/i.test(n))    out.push(n + ' island');
+  if (place.kind === 'cave'      && !/cave|cueva/i.test(n))     out.push('Cave of ' + n);
+
+  try {
+    if (typeof ES_REGIONS !== 'undefined' && ES_REGIONS[place.abbr])
+      out.push(n + ', ' + ES_REGIONS[place.abbr][0]);
+  } catch(e){}
+  out.push(n + ', Spain', n + ' (Spain)');
+  return out.filter((t, i) => t && out.indexOf(t) === i);
+}
+
+/* Egypt. Transliteration is the whole problem here: el- and al-,
+   hyphens, and the English name sitting beside the Arabic one. The
+   override map carries nearly every entry, and the generated
+   fallbacks mostly exist so that a new place added later still gets
+   a picture before anybody writes its override. */
+function photoTitlesEG(place){
+  const raw = String(place.name || '').trim();
+  const out = [];
+  try {
+    if (typeof EG_WIKI !== 'undefined' && EG_WIKI[place.id]) out.push(EG_WIKI[place.id]);
+  } catch(e){}
+
+  const paren = /^(.+?)\s*\(([^)]+)\)\s*$/.exec(raw);
+  const bare  = paren ? paren[1].trim() : raw;
+  const alt   = paren ? paren[2].trim() : '';
+
+  const parts = bare.split(/\s*&\s*/).map(x => x.replace(/^the\s+/i, '').trim());
+  parts.forEach(x => x && out.push(x));
+  if (alt) out.push(alt);
+
+  const n = parts[0] || bare;
+  /* el- and al- are the same prefix romanised two ways, and
+     Wikipedia is not consistent about which it files under. */
+  if (/\bel-/i.test(n))  out.push(n.replace(/\bel-/gi, 'al-'));
+  if (/\bal-/i.test(n))  out.push(n.replace(/\bal-/gi, 'el-'));
+
+  if (place.kind === 'temple'    && !/Temple/i.test(n))    out.push('Temple of ' + n);
+  if (place.kind === 'pyramid'   && !/Pyramid/i.test(n))   out.push('Pyramid of ' + n);
+  if (place.kind === 'monastery' && !/Monastery/i.test(n)) out.push('Monastery of ' + n);
+  if (place.kind === 'oasis'     && !/Oasis/i.test(n))     out.push(n + ' Oasis');
+  if (place.kind === 'desert'    && !/Desert/i.test(n))    out.push(n + ' Desert');
+  if (place.kind === 'island'    && !/island/i.test(n))    out.push(n + ' Island');
+  if (place.kind === 'mosque'    && !/Mosque/i.test(n))    out.push('Mosque of ' + n);
+
+  out.push(n + ', Egypt', n + ' (Egypt)');
+  return out.filter((t, i) => t && out.indexOf(t) === i);
+}
+
+/* Iceland. Almost every name has at least one character outside
+   ASCII, and the three that matter are þ, ð and the accented
+   vowels. Wikipedia keeps the Icelandic spelling as the article
+   title, so the override map is mostly there for the handful of
+   English-titled articles and for places this atlas groups under a
+   name of its own. A transliterated fallback is generated so that a
+   reader whose keyboard produced "Thingvellir" still gets a photo. */
+function photoTitlesIS(place){
+  const raw = String(place.name || '').trim();
+  const out = [];
+  try {
+    if (typeof IS_WIKI !== 'undefined' && IS_WIKI[place.id]) out.push(IS_WIKI[place.id]);
+  } catch(e){}
+
+  const paren = /^(.+?)\s*\(([^)]+)\)\s*$/.exec(raw);
+  const bare  = paren ? paren[1].trim() : raw;
+  const alt   = paren ? paren[2].trim() : '';
+
+  const parts = bare.split(/\s*&\s*/).map(x => x.replace(/^the\s+/i, '').trim());
+  parts.forEach(x => x && out.push(x));
+  if (alt) out.push(alt);
+
+  const n = parts[0] || bare;
+  const ascii = n
+    .replace(/Þ/g, 'Th').replace(/þ/g, 'th')
+    .replace(/Ð/g, 'D').replace(/ð/g, 'd')
+    .replace(/Æ/g, 'Ae').replace(/æ/g, 'ae')
+    .replace(/Ö/g, 'O').replace(/ö/g, 'o')
+    .replace(/[ÁÉÍÓÚÝ]/g, c => 'AEIOUY'['ÁÉÍÓÚÝ'.indexOf(c)])
+    .replace(/[áéíóúý]/g, c => 'aeiouy'['áéíóúý'.indexOf(c)]);
+  if (ascii !== n) out.push(ascii);
+
+  if (place.kind === 'np'      && !/National Park$/i.test(n)) out.push(n + ' National Park');
+  if (place.kind === 'falls'   && !/foss$/i.test(n))          out.push(n + 'foss');
+  if (place.kind === 'glacier' && !/j[öo]kull$/i.test(n))     out.push(n + 'jökull');
+  if (place.kind === 'island'  && !/ey$|island/i.test(n))     out.push(n + ' Island');
+  if (place.kind === 'pool'    && !/laug$|baths?$/i.test(n))  out.push(n + ' (hot spring)');
+
+  out.push(n + ', Iceland', n + ' (Iceland)');
+  return out.filter((t, i) => t && out.indexOf(t) === i);
+}
+
 function photoTitles(place){
   if (place && place.country === 'IT') return photoTitlesIT(place);
   if (place && place.country === 'CR') return photoTitlesCR(place);
   if (place && place.country === 'IN') return photoTitlesIN(place);
   if (place && place.country === 'JP') return photoTitlesJP(place);
+  if (place && place.country === 'ES') return photoTitlesES(place);
+  if (place && place.country === 'EG') return photoTitlesEG(place);
+  if (place && place.country === 'IS') return photoTitlesIS(place);
   const st = STATE_FULL[place.abbr] || place.abbr;
   const n  = place.name;
   /* Shared name: qualify first, bare name only as a last resort. */

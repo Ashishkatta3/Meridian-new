@@ -34,7 +34,7 @@
    caches are named from it, so a new version cannot read an old
    shell — the bug where a phone holds one new file next to one old
    one is impossible by construction here. */
-const VERSION = 'v36';
+const VERSION = 'v37';
 
 const SHELL  = 'meridian-shell-'  + VERSION;
 const DATA   = 'meridian-data-'   + VERSION;
@@ -85,6 +85,10 @@ const SHELL_FILES = [
   'assets/js/core/lazy.js',
   'assets/js/core/placeview.js',
   'assets/js/core/jp.live.js',
+  'assets/js/core/livekit.js',
+  'assets/js/core/es.live.js',
+  'assets/js/core/eg.live.js',
+  'assets/js/core/is.live.js',
   'assets/js/core/offline.js',
 
   'assets/js/map/icons.js',
@@ -105,6 +109,9 @@ const SHELL_FILES = [
   'assets/js/pages/cr.js',
   'assets/js/pages/in.js',
   'assets/js/pages/jp.js',
+  'assets/js/pages/es.js',
+  'assets/js/pages/eg.js',
+  'assets/js/pages/is.js',
 
 
   /* Country data. The guide files are deliberately absent: they
@@ -115,6 +122,9 @@ const SHELL_FILES = [
   'assets/js/data/cr.places.js',
   'assets/js/data/in.places.js',
   'assets/js/data/jp.places.js',
+  'assets/js/data/es.places.js',
+  'assets/js/data/eg.places.js',
+  'assets/js/data/is.places.js',
 
   'assets/js/app.js',
   'assets/js/core/router.js'
