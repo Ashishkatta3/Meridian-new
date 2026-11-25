@@ -50,6 +50,12 @@ function renderAccount(){
     +     '<label>Email<input id="inEmail" type="email" autocomplete="email"></label>'
     +     '<label>Password<input id="inPass" type="password" autocomplete="current-password"></label>'
     +     '<button class="pg-btn pg-btn-go" id="acIn">Sign in</button>'
+    +     '<p class="ac-alt"><button type="button" class="ac-link" id="acForgot">Forgotten your password?</button></p>'
+    +     '<div class="ac-reset" id="acResetBox" hidden>'
+    +       '<label>Email<span>We will send a link to set a new password.</span>'
+    +         '<input id="rsEmail" type="email" autocomplete="email"></label>'
+    +       '<button class="pg-btn" id="acReset">Send reset link</button>'
+    +     '</div>'
     +   '</div>'
     +   '<div class="ac-form"><h2>New here</h2>'
     +     '<label>Your name<span>Shown to anyone you travel with.</span><input id="upName" type="text" autocomplete="nickname" placeholder="Alex"></label>'
@@ -200,6 +206,35 @@ function mountAccount(host){
        picker yet, so offer it rather than dropping them on the map */
     location.hash = (typeof markCounts === 'function' && !markCounts().been && !markCounts().want)
       ? '#/welcome' : '#/planner';
+  };
+
+  /* Password reset. The box is hidden until asked for, so the sign-in
+     form stays a two-field form for the ninety per cent who remember. */
+  const forgot = $('#acForgot');
+  if (forgot) forgot.onclick = () => {
+    const box = $('#acResetBox');
+    if (!box) return;
+    const show = box.hasAttribute('hidden');
+    if (show){
+      box.removeAttribute('hidden');
+      const e = $('#rsEmail'), typed = $('#inEmail');
+      if (e && typed && typed.value.trim() && !e.value) e.value = typed.value.trim();
+      if (e) e.focus();
+    } else {
+      box.setAttribute('hidden', '');
+    }
+    forgot.textContent = show ? 'Never mind, I remember it' : 'Forgotten your password?';
+  };
+
+  const rsBtn = $('#acReset');
+  if (rsBtn) rsBtn.onclick = async () => {
+    rsBtn.dataset.label = 'Send reset link'; busy(rsBtn, true);
+    const r = await requestPasswordReset($('#rsEmail').value);
+    busy(rsBtn, false);
+    if (r.error) return msg(r.error, true);
+    /* Deliberately the same wording whether or not the address has an
+       account, so this cannot be used to find out who is registered. */
+    msg('If that address has an account, a reset link is on its way. The link lasts one hour.', false);
   };
 
   const upBtn = $('#acUp');

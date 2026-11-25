@@ -1,0 +1,145 @@
+/* ===========================================================
+   PLACE PAGE LAYOUT
+   Shared by Italy, Costa Rica, India and Japan.
+   =========================================================== */
+
+/* ---------- jump bar ---------- */
+.pv-jump{
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 22px 0 4px;
+  padding-bottom: 2px;
+}
+.pv-jump a{
+  font: 500 11px/1 var(--mono);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  text-decoration: none;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  white-space: nowrap;
+  transition: color .15s, border-color .15s, background .15s;
+}
+.pv-jump a:hover,
+.pv-jump a:focus-visible{
+  color: var(--fg);
+  border-color: var(--fg);
+}
+.pv-jump a.is-here{
+  color: var(--bg);
+  background: var(--fg);
+  border-color: var(--fg);
+}
+
+/* A jumped-to heading should not sit flush under a sticky header,
+   and should not show a focus ring just because we moved focus
+   there for screen readers. */
+.pv-anchor{ scroll-margin-top: 78px; }
+.pv-anchor:focus{ outline: none; }
+
+/* ---------- two columns ---------- */
+.pv-cols{
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 34px;
+  margin-top: 8px;
+}
+.pv-main{ min-width: 0; }
+.pv-aside{ min-width: 0; }
+
+@media (min-width: 900px){
+  .pv-cols{
+    grid-template-columns: minmax(0, 1fr) 330px;
+    gap: 46px;
+    align-items: start;
+  }
+  /* The live panel follows you down the page rather than scrolling
+     away after the first screen. */
+  .pv-aside{
+    position: sticky;
+    top: 70px;
+    max-height: calc(100vh - 90px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+  /* In one narrow column the two-column live layout from italy.css
+     would be unreadable, so it is overridden back to a single
+     stack. */
+  .pv-live{ column-count: 1 !important; }
+  /* The aside comes first in source order on mobile, so on desktop
+     it is moved to the right-hand column. */
+  .pv-cols > .pv-aside{ grid-column: 2; grid-row: 1; }
+  .pv-cols > .pv-main{  grid-column: 1; grid-row: 1; }
+}
+
+@media (min-width: 1240px){
+  .pv-cols{ grid-template-columns: minmax(0, 1fr) 360px; }
+}
+
+/* ---------- live panel ---------- */
+.pv-live{
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 18px 18px 16px;
+  background: var(--card, transparent);
+}
+.pv-live h3{
+  font: 500 11px/1 var(--mono);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin: 0 0 14px;
+}
+.pv-live-key .pl-lv,
+.pv-live-more .pl-lv{ margin-bottom: 14px; }
+.pv-live-key .pl-lv:last-child,
+.pv-live-more .pl-lv:last-child{ margin-bottom: 0; }
+
+.pv-live-more{ margin-top: 14px; }
+
+.pv-more-btn{
+  display: block;
+  width: 100%;
+  margin-top: 14px;
+  padding: 9px 12px;
+  font: 500 11px/1 var(--mono);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color .15s, border-color .15s;
+}
+.pv-more-btn:hover,
+.pv-more-btn:focus-visible{
+  color: var(--fg);
+  border-color: var(--fg);
+}
+
+/* On a phone the sticky column is off and the panel is just a
+   block under the photo, so it needs its own breathing room. */
+@media (max-width: 899px){
+  .pv-aside{ margin-top: 26px; }
+  .pv-jump{
+    /* Let the bar scroll sideways instead of wrapping to three
+       rows and eating half the screen. */
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    margin-left: calc(var(--gut, 16px) * -1);
+    margin-right: calc(var(--gut, 16px) * -1);
+    padding-left: var(--gut, 16px);
+    padding-right: var(--gut, 16px);
+  }
+  .pv-jump::-webkit-scrollbar{ display: none; }
+}
+
+@media (prefers-reduced-motion: reduce){
+  .pv-jump a, .pv-more-btn{ transition: none; }
+}

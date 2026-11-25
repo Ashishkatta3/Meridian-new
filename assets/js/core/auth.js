@@ -104,6 +104,62 @@ async function signIn(email, password){
   return { ok: true };
 }
 
+/* ---- password reset ----
+
+   Two halves. requestPasswordReset sends the email; Supabase puts a
+   recovery token in the link fragment and the browser lands back on
+   the site. setNewPassword then changes it.
+
+   The redirect goes to #/recover. It deliberately does NOT go to
+   #/reset, which this app already uses to clear a broken service
+   worker cache, and which would wipe the recovery session out from
+   under the user before they could type anything.
+
+   The reply is the same whether or not the address exists. Telling
+   an anonymous visitor which addresses have accounts is a way of
+   leaking a user list. */
+async function requestPasswordReset(email){
+  const sb = await sbClient();
+  if (!sb) return { error: 'No database connected yet.' };
+  const addr = (email || '').trim();
+  if (!addr || addr.indexOf('@') === -1) return { error: 'A valid email address is needed.' };
+
+  const base = location.origin + location.pathname;
+  try {
+    await sb.auth.resetPasswordForEmail(addr, { redirectTo: base + '#/recover' });
+  } catch (e){
+    return { error: 'Could not send the email just now. Try again in a minute.' };
+  }
+  return { ok: true };
+}
+
+/* Called from the recovery page. Supabase has already put a session
+   in place from the token in the link, so this is an ordinary user
+   update. */
+async function setNewPassword(password){
+  const sb = await sbClient();
+  if (!sb) return { error: 'No database connected yet.' };
+  const pw = String(password || '');
+  if (pw.length < 6) return { error: 'Use at least six characters.' };
+
+  const { data } = await sb.auth.getUser();
+  if (!data || !data.user){
+    return { error: 'This reset link has expired. Request a new one from the account page.' };
+  }
+  const { error } = await sb.auth.updateUser({ password: pw });
+  if (error) return { error: error.message };
+  await authLoad();
+  return { ok: true };
+}
+
+/* True when the page was opened from a recovery email. Supabase
+   signals it in the URL fragment, and the client also fires a
+   PASSWORD_RECOVERY event which app.js listens for. */
+function isRecoveryLink(){
+  const h = String(location.hash || '');
+  return h.indexOf('type=recovery') !== -1 || h.indexOf('/recover') !== -1;
+}
+
 async function signOut(){
   const sb = await sbClient();
   if (sb) await sb.auth.signOut();

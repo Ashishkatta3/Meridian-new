@@ -1090,3 +1090,111 @@
 .pg-spread p{ margin: 0 0 9px; font: 400 12.5px/1.55 var(--sans); color: var(--muted); }
 .pg-spread p b{ color: var(--ink); }
 .pg-spread .pg-btn-s{ margin: 0 5px 5px 0; }
+
+/* ===========================================================
+   TRAVEL DATES  (planner)
+   =========================================================== */
+.pl-dates{ margin-top: 10px; }
+
+.pl-dates-toggle{
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  font: 400 13px/1.5 var(--sans);
+  color: var(--muted);
+  text-align: left;
+}
+.pl-dates-toggle b{ color: var(--fg); font-weight: 500; }
+.pl-dates-toggle i{
+  font: 500 10px/1 var(--mono);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  border-bottom: 1px solid var(--line);
+  font-style: normal;
+}
+.pl-dates-toggle:hover i,
+.pl-dates-toggle:focus-visible i{ color: var(--fg); border-color: var(--fg); }
+.pl-dates-none{ color: var(--faint); }
+
+.pl-dates-edit{
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin-top: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.pl-dates-edit label{
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font: 500 10px/1 var(--mono);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.pl-dates-edit input[type="date"]{
+  font: 400 14px/1 var(--sans);
+  color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 10px;
+  min-width: 160px;
+}
+.pl-dates-edit input[type="date"]:focus-visible{ border-color: var(--fg); outline: none; }
+.pl-dates-msg{
+  flex-basis: 100%;
+  margin: 0;
+  font: 400 12px/1.5 var(--sans);
+  color: var(--bad, #c0564f);
+}
+
+/* the calendar date beside a day heading */
+.pg-col-date{
+  font: 400 11px/1 var(--mono);
+  color: var(--faint);
+  letter-spacing: .04em;
+  margin-left: 8px;
+  white-space: nowrap;
+}
+
+@media (max-width: 560px){
+  .pl-dates-edit input[type="date"]{ min-width: 0; width: 100%; }
+  .pl-dates-edit label{ flex: 1 1 100%; }
+}
+
+/* ===========================================================
+   PASSWORD RESET  (account / recover)
+   =========================================================== */
+.ac-alt{ margin: 12px 0 0; }
+
+.ac-link{
+  padding: 0;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  font: 400 13px/1.5 var(--sans);
+  color: var(--muted);
+  border-bottom: 1px solid var(--line);
+}
+.ac-link:hover,
+.ac-link:focus-visible{ color: var(--fg); border-color: var(--fg); }
+
+.ac-reset{
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+.ac-reset label{ display: block; }
+
+/* The recovery page has one form rather than two, so it should not
+   stretch across a wide screen. */
+.ac-cols-one{ grid-template-columns: minmax(0, 420px) !important; }

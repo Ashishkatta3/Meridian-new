@@ -68,6 +68,18 @@ function tripsIntegrity(why){
     ownArray(t, 'days',  t.name || t.id);
     if (!t.notes || typeof t.notes !== 'object'){ t.notes = {}; }
 
+    /* Dates arrive from the cloud as well as from this browser, so
+       anything that is not a plain ISO day is dropped rather than
+       trusted. An end before a start is cleared too: it would make
+       tripNights go negative and the day labels run backwards. */
+    const isDay = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+    if (!isDay(t.start)) t.start = '';
+    if (!isDay(t.end))   t.end = '';
+    if (t.start && t.end && t.end < t.start){
+      t.end = '';
+      fixed.push('an end date before the start in "' + (t.name || t.id) + '"');
+    }
+
     /* day ids have to be unique inside a trip, or a stop dragged into
        one day lands in the other */
     const dayIds = {};
@@ -133,10 +145,94 @@ function tripCreate(name){
      the literal 'd1' in every trip, so two trips shared a day id — a
      collision waiting to put a stop under the wrong trip's day. */
   const t = { id: tripId(), name: tripUniqueName(name || 'Untitled trip'), created: Date.now(), updated: Date.now(),
+              start: '', end: '',
               days: [{ id: 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
                        label: 'Day 1', stops: [] }], ideas: [], notes: {} };
   TRIPS.push(t); tripsSave(); return t;
 }
+/* ---- travel dates ----
+
+   A trip carries an optional start and end as plain ISO dates
+   ("2026-04-02"), not timestamps. Dates here mean calendar days in
+   the place you are going, so a timestamp would drag a timezone
+   into it and shift the day for anyone east or west of wherever
+   the trip was planned.
+
+   Both are optional and either can be set alone. Trips created
+   before this existed simply have neither, which every reader
+   below treats as "no dates set". */
+function tripSetDates(id, start, end){
+  const t = tripGet(id); if (!t) return { error: 'No such trip.' };
+  const ok = v => !v || /^\d{4}-\d{2}-\d{2}$/.test(v);
+  if (!ok(start) || !ok(end)) return { error: 'Dates need to look like 2026-04-02.' };
+
+  if (start && end && end < start){
+    return { error: 'The end date is before the start date.' };
+  }
+  t.start = start || '';
+  t.end   = end || '';
+  t.updated = Date.now();
+  tripsSave();
+  return { ok: true };
+}
+
+/* Nights, not days. A trip from the 2nd to the 5th is three nights
+   and four days, and people book hotels in nights. */
+function tripNights(t){
+  if (!t || !t.start || !t.end) return null;
+  const a = Date.parse(t.start + 'T00:00:00Z'), b = Date.parse(t.end + 'T00:00:00Z');
+  if (isNaN(a) || isNaN(b)) return null;
+  return Math.max(0, Math.round((b - a) / 86400000));
+}
+
+/* The calendar date of day N, when a start date is set. Day 1 is
+   the start date itself. */
+function tripDayDate(t, index){
+  if (!t || !t.start) return null;
+  const ms = Date.parse(t.start + 'T00:00:00Z');
+  if (isNaN(ms)) return null;
+  return new Date(ms + index * 86400000);
+}
+
+function tripDayDateLabel(t, index){
+  const d = tripDayDate(t, index);
+  if (!d) return '';
+  try {
+    return new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'UTC', weekday: 'short', day: 'numeric', month: 'short'
+    }).format(d);
+  } catch (e){ return ''; }
+}
+
+/* Human summary for the trip header. */
+function tripDateLabel(t){
+  if (!t || (!t.start && !t.end)) return '';
+  const fmt = iso => {
+    const ms = Date.parse(iso + 'T00:00:00Z');
+    if (isNaN(ms)) return iso;
+    try {
+      return new Intl.DateTimeFormat('en-GB', {
+        timeZone: 'UTC', day: 'numeric', month: 'short', year: 'numeric'
+      }).format(new Date(ms));
+    } catch (e){ return iso; }
+  };
+  if (t.start && t.end){
+    const n = tripNights(t);
+    return fmt(t.start) + ' to ' + fmt(t.end)
+      + (n != null ? ' \u00b7 ' + n + (n === 1 ? ' night' : ' nights') : '');
+  }
+  return t.start ? 'from ' + fmt(t.start) : 'until ' + fmt(t.end);
+}
+
+/* How many days until departure, for the countdown in the header. */
+function tripDaysAway(t){
+  if (!t || !t.start) return null;
+  const today = new Date().toISOString().slice(0, 10);
+  const a = Date.parse(today + 'T00:00:00Z'), b = Date.parse(t.start + 'T00:00:00Z');
+  if (isNaN(a) || isNaN(b)) return null;
+  return Math.round((b - a) / 86400000);
+}
+
 function tripRename(id, name){
   const t = tripGet(id); if (!t) return;
   t.name = tripUniqueName(name || t.name, id);

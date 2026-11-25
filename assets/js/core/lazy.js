@@ -70,7 +70,8 @@ function loadScriptOnce(src){
 const GUIDE_SRC = {
   IT: 'assets/js/data/italy.guide.js',
   CR: 'assets/js/data/cr.guide.js',
-  IN: 'assets/js/data/in.guide.js'
+  IN: 'assets/js/data/in.guide.js',
+  JP: 'assets/js/data/jp.guide.js'
 };
 
 /* Awaited by a country's place page before it renders. Returns

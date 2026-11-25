@@ -42,6 +42,15 @@
     /* The escape hatch, before anything else can get in the way: if
        this browser is holding a broken copy of the site, #/reset has
        to work even when the rest of it does not. */
+    /* Password recovery. Deliberately matched before '/reset', which
+       clears the service worker cache: a recovery link must never
+       trip that and destroy the session it just established. The
+       startsWith check is because Supabase may append its own token
+       parameters to the fragment. */
+    if (hash.indexOf('/recover') === 0 && typeof mountRecover === 'function'){
+      mountRecover(page); view('account'); return;
+    }
+
     if (hash === '/reset' && typeof mountReset === 'function'){
       mountReset(page); view('planner'); return;
     }
@@ -127,6 +136,22 @@
     }
     if (hash === '/india' && typeof mountIndia === 'function'){
       mountIndia(page); view('india'); return;
+    }
+
+    /* ---- Japan ---- */
+    m = hash.match(/^\/japan\/place\/(.+)$/);
+    if (m && typeof mountJpPlace === 'function'){
+      const pid = decodeURIComponent(m[1]);
+      if (typeof jpPlaceGet === 'function' && jpPlaceGet(pid)){
+        mountJpPlace(page, pid); view('japan'); return;
+      }
+    }
+    m = hash.match(/^\/japan\/region\/([A-Za-z]{3})$/);
+    if (m && typeof mountJpRegion === 'function'){
+      mountJpRegion(page, m[1].toUpperCase()); view('japan'); return;
+    }
+    if (hash === '/japan' && typeof mountJapan === 'function'){
+      mountJapan(page); view('japan'); return;
     }
 
     if (hash === '/map' && typeof mountMapPage === 'function'){

@@ -181,10 +181,67 @@ function photoTitlesIN(place){
   return out.filter((t, i) => t && out.indexOf(t) === i);
 }
 
+/* Japan. The naming quirks that matter for a Wikipedia lookup:
+
+     - "Kiyomizu-dera" is already the article title, so appending
+       "Temple" produces a miss rather than a hit
+     - several places here are a pair joined by "&" ("Furano & Biei"),
+       and the article is under one half
+     - "Naha & Shuri" style names where the second half is the
+       actual monument
+     - a romanised name with a macron in the article title is not
+       something this data carries, so the plain spelling is tried
+       first and the region-qualified form after
+*/
+function photoTitlesJP(place){
+  const raw = String(place.name || '').trim();
+  const out = [];
+  try {
+    if (typeof JP_WIKI !== 'undefined' && JP_WIKI[place.id]) out.push(JP_WIKI[place.id]);
+  } catch(e){}
+
+  const paren = /^(.+?)\s*\(([^)]+)\)\s*$/.exec(raw);
+  const bare  = paren ? paren[1].trim() : raw;
+  const alt   = paren ? paren[2].trim() : '';
+
+  const parts = bare.split(/\s*&\s*/).map(x => x.replace(/^the\s+/i, '').trim());
+  parts.forEach(x => x && out.push(x));
+  if (alt) out.push(alt);
+
+  const n = parts[0] || bare;
+
+  /* Only add a suffix when the name does not already carry one in
+     either language. "-ji", "-dera" and "-in" are temples; "-jinja",
+     "-taisha" and "-gu" are shrines; "-jo" is a castle. */
+  const isTemple = /(-ji|-dera|-in|temple)$/i.test(n);
+  const isShrine = /(-jinja|-taisha|-gu|jingu|shrine)$/i.test(n);
+  const isCastle = /(-jo|castle)$/i.test(n);
+
+  if (place.kind === 'temple'   && !isTemple) out.push(n + ' Temple');
+  if (place.kind === 'shrine'   && !isShrine) out.push(n + ' Shrine');
+  if (place.kind === 'castle'   && !isCastle) out.push(n + ' Castle');
+  if (place.kind === 'onsen'    && !/onsen$/i.test(n))    out.push(n + ' Onsen');
+  if (place.kind === 'np'       && !/National Park$/i.test(n)) out.push(n + ' National Park');
+  if (place.kind === 'falls'    && !/falls$/i.test(n))    out.push(n + ' Falls');
+  if (place.kind === 'island'   && !/island/i.test(n))    out.push(n + ' Island');
+  if (place.kind === 'mountain' && !/^mount|yama$|dake$/i.test(n)) out.push('Mount ' + n);
+  if (place.kind === 'volcano'  && !/^mount/i.test(n))    out.push('Mount ' + n);
+  if (place.kind === 'garden'   && !/garden/i.test(n))    out.push(n + ' Garden');
+  if (place.kind === 'gorge'    && !/gorge|valley/i.test(n)) out.push(n + ' Gorge');
+
+  try {
+    if (typeof JP_REGIONS !== 'undefined' && JP_REGIONS[place.abbr])
+      out.push(n + ', ' + JP_REGIONS[place.abbr][0]);
+  } catch(e){}
+  out.push(n + ', Japan', n + ' (Japan)');
+  return out.filter((t, i) => t && out.indexOf(t) === i);
+}
+
 function photoTitles(place){
   if (place && place.country === 'IT') return photoTitlesIT(place);
   if (place && place.country === 'CR') return photoTitlesCR(place);
   if (place && place.country === 'IN') return photoTitlesIN(place);
+  if (place && place.country === 'JP') return photoTitlesJP(place);
   const st = STATE_FULL[place.abbr] || place.abbr;
   const n  = place.name;
   /* Shared name: qualify first, bare name only as a last resort. */

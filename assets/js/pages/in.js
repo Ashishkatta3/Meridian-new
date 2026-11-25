@@ -158,44 +158,55 @@ function renderInPlace(id){
 
   h += '<div class="it-hero" data-inphoto-big="' + id + '"></div>';
 
-  const tags = (p.flags || []).concat(p.land || []);
-  if (tags.length){
-    h += '<div class="pg-sec"><div class="pg-chips">'
-      + tags.map(t => '<span class="pg-chip">' + inEsc(inTagLabel(t)) + '</span>').join('')
-      + '</div></div>';
-  }
+  h += pvChips(p, inTagLabel);
 
-  h += '<div class="pg-sec"><div class="pl-live it-live" id="inLive">'
-    + '<h3>Right now</h3><p class="it-live-wait">Checking conditions…</p></div></div>';
+  /* The jump bar lists only the sections this page actually has. */
+  const near = inNearby(id, 6);
+  const practical = g ? [['when','When to go'],['stay','How long'],
+                         ['move','Getting there'],['eat','What to eat']]
+                        .filter(r => g[r[0]]) : [];
+  const sections = [{ id: 'in-now', label: 'Right now' }];
+  if (g && g.intro && g.intro.length) sections.push({ id: 'in-place', label: 'The place' });
+  if (g && g.see && g.see.length)     sections.push({ id: 'in-do',    label: 'What to do' });
+  if (practical.length)               sections.push({ id: 'in-prac',  label: 'Practical' });
+  if (near.length)                    sections.push({ id: 'in-near',  label: 'Nearby' });
+  h += pvJumpNav(sections);
+
+  h += pvColumnsOpen();
+  /* Written before the main column so that on a phone, where the
+     grid collapses to one column, the live panel lands under the
+     photo rather than below four screens of prose. The CSS puts it
+     back on the right at desktop widths. */
+  h += '<div id="in-now" class="pv-anchor">' + pvAside('inLive') + '</div>';
+  h += pvMainOpen();
 
   if (g){
     if (g.intro && g.intro.length){
-      h += '<div class="pg-sec"><h2>The place</h2><div class="it-prose">'
+      h += '<div class="pg-sec pv-anchor" id="in-place"><h2>The place</h2><div class="it-prose">'
         + g.intro.map(x => '<p>' + inEsc(x) + '</p>').join('') + '</div></div>';
     }
     if (g.see && g.see.length){
-      h += '<div class="pg-sec"><h2>What to do</h2><ol class="it-todo">'
+      h += '<div class="pg-sec pv-anchor" id="in-do"><h2>What to do</h2><ol class="it-todo">'
         + g.see.map(s => '<li><b>' + inEsc(s.n) + '</b>'
             + (s.t ? '<i>' + inEsc(s.t) + '</i>' : '')
             + '<p>' + inEsc(s.d) + '</p></li>').join('')
         + '</ol></div>';
     }
-    const practical = [['when','When to go'],['stay','How long'],['move','Getting there'],['eat','What to eat']]
-      .filter(r => g[r[0]]);
     if (practical.length){
-      h += '<div class="pg-sec"><h2>Practical</h2><dl class="it-prac">'
+      h += '<div class="pg-sec pv-anchor" id="in-prac"><h2>Practical</h2><dl class="it-prac">'
         + practical.map(r => '<div><dt>' + r[1] + '</dt><dd>' + inEsc(g[r[0]]) + '</dd></div>').join('')
         + '</dl></div>';
     }
   }
 
-  const near = inNearby(id, 6);
   if (near.length){
-    h += '<div class="pg-sec"><h2>Nearby</h2><div class="tr-grid">'
+    h += '<div class="pg-sec pv-anchor" id="in-near"><h2>Nearby</h2><div class="tr-grid">'
       + near.map(n => inCard(n.id, true)).join('')
       + '</div></div>';
   }
 
+  h += pvMainClose();
+  h += pvColumnsClose();
   return h + '</section>';
 }
 
@@ -232,6 +243,8 @@ async function mountInPlace(host, id){
   host.innerHTML = renderInPlace(id);
   window.scrollTo(0, 0);
   inPaintPhotos(host);
+  if (typeof pvWire === 'function') pvWire(host);
+  if (typeof pvWatchSections === 'function') pvWatchSections(host);
   const p = inPlaceGet(id);
   if (p) wireInLive(host, p);
 }
@@ -296,10 +309,10 @@ async function wireInLive(host, p){
   const sources = [];
   const draw = () => {
     if (!document.body.contains(panel)) return;
-    panel.innerHTML = '<h3>Right now</h3>'
-      + (rows.length ? rows.join('')
-         : '<p class="it-live-wait">Nothing is answering for this place right now.</p>')
-      + (sources.length ? '<p class="pl-live-src">' + sources.join(' &middot; ') + '</p>' : '');
+    panel.innerHTML = (typeof pvLiveBody === 'function')
+      ? pvLiveBody(rows, sources)
+      : '<h3>Right now</h3>' + rows.join('');
+    if (typeof pvRestoreMore === 'function') pvRestoreMore(panel);
   };
 
   /* --- the clock, which needs nothing --- */

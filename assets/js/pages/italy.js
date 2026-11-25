@@ -146,47 +146,58 @@ function renderItPlace(id){
   h += '<div class="it-hero" data-itphoto-big="' + id + '"></div>';
 
   /* tags, so a place says what it is without a paragraph about it */
-  const tags = (p.flags || []).concat(p.land || []);
-  if (tags.length){
-    h += '<div class="pg-sec"><div class="pg-chips">'
-      + tags.map(t => '<span class="pg-chip">' + itEsc(itTagLabel(t)) + '</span>').join('')
-      + '</div></div>';
-  }
+  h += pvChips(p, itTagLabel);
 
   /* LIVE — filled in by wireItLive once the requests answer */
-  h += '<div class="pg-sec"><div class="pl-live it-live" id="itLive">'
-    + '<h3>Right now</h3><p class="it-live-wait">Checking conditions…</p></div></div>';
+  /* The jump bar lists only the sections this page actually has. */
+  const near = itNearby(id, 6);
+  const practical = g ? [['when','When to go'],['stay','How long'],
+                         ['move','Getting around'],['eat','What to eat']]
+                        .filter(r => g[r[0]]) : [];
+  const sections = [{ id: 'it-now', label: 'Right now' }];
+  if (g && g.intro && g.intro.length) sections.push({ id: 'it-place', label: 'The place' });
+  if (g && g.see && g.see.length)     sections.push({ id: 'it-do',    label: 'What to do' });
+  if (practical.length)               sections.push({ id: 'it-prac',  label: 'Practical' });
+  if (near.length)                    sections.push({ id: 'it-near',  label: 'Nearby' });
+  h += pvJumpNav(sections);
+
+  h += pvColumnsOpen();
+  /* Written before the main column so that on a phone, where the
+     grid collapses to one column, the live panel lands under the
+     photo rather than below four screens of prose. The CSS puts it
+     back on the right at desktop widths. */
+  h += '<div id="it-now" class="pv-anchor">' + pvAside('itLive') + '</div>';
+  h += pvMainOpen();
 
   /* the written guide, when there is one for this place */
   if (g){
     if (g.intro && g.intro.length){
-      h += '<div class="pg-sec"><h2>The place</h2><div class="it-prose">'
+      h += '<div class="pg-sec pv-anchor" id="it-place"><h2>The place</h2><div class="it-prose">'
         + g.intro.map(x => '<p>' + itEsc(x) + '</p>').join('') + '</div></div>';
     }
     if (g.see && g.see.length){
-      h += '<div class="pg-sec"><h2>What to do</h2><ol class="it-todo">'
+      h += '<div class="pg-sec pv-anchor" id="it-do"><h2>What to do</h2><ol class="it-todo">'
         + g.see.map(s => '<li><b>' + itEsc(s.n) + '</b>'
             + (s.t ? '<i>' + itEsc(s.t) + '</i>' : '')
             + '<p>' + itEsc(s.d) + '</p></li>').join('')
         + '</ol></div>';
     }
-    const practical = [['when','When to go'],['stay','How long'],['move','Getting around'],['eat','What to eat']]
-      .filter(r => g[r[0]]);
     if (practical.length){
-      h += '<div class="pg-sec"><h2>Practical</h2><dl class="it-prac">'
+      h += '<div class="pg-sec pv-anchor" id="it-prac"><h2>Practical</h2><dl class="it-prac">'
         + practical.map(r => '<div><dt>' + r[1] + '</dt><dd>' + itEsc(g[r[0]]) + '</dd></div>').join('')
         + '</dl></div>';
     }
   }
 
   /* what else is close, which is how an itinerary actually gets built */
-  const near = itNearby(id, 6);
   if (near.length){
-    h += '<div class="pg-sec"><h2>Nearby</h2><div class="tr-grid">'
+    h += '<div class="pg-sec pv-anchor" id="it-near"><h2>Nearby</h2><div class="tr-grid">'
       + near.map(n => itCard(n.id, true)).join('')
       + '</div></div>';
   }
 
+  h += pvMainClose();
+  h += pvColumnsClose();
   return h + '</section>';
 }
 
@@ -216,6 +227,8 @@ async function mountItPlace(host, id){
   host.innerHTML = renderItPlace(id);
   window.scrollTo(0, 0);
   itPaintPhotos(host);
+  if (typeof pvWire === 'function') pvWire(host);
+  if (typeof pvWatchSections === 'function') pvWatchSections(host);
   const p = itPlaceGet(id);
   if (p) wireItLive(host, p);
 }
@@ -289,10 +302,10 @@ async function wireItLive(host, p){
   const sources = [];
   const draw = () => {
     if (!document.body.contains(panel)) return;           /* navigated away */
-    panel.innerHTML = '<h3>Right now</h3>'
-      + (rows.length ? rows.join('')
-         : '<p class="it-live-wait">Nothing is answering for this place right now.</p>')
-      + (sources.length ? '<p class="pl-live-src">' + sources.join(' &middot; ') + '</p>' : '');
+    panel.innerHTML = (typeof pvLiveBody === 'function')
+      ? pvLiveBody(rows, sources)
+      : '<h3>Right now</h3>' + rows.join('');
+    if (typeof pvRestoreMore === 'function') pvRestoreMore(panel);
   };
 
   /* --- the clock, which needs nothing --- */

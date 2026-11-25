@@ -50,7 +50,8 @@ function renderTrip(id){
     + '<div class="pg-head">'
     +   '<div><span class="lab">Trip</span>'
     +     '<h1 class="pg-name" id="tripName" contenteditable="true" spellcheck="false">' + plEsc(t.name) + '</h1>'
-    +     '<p class="pg-sub">' + total + (total === 1 ? ' place' : ' places') + ' across ' + t.days.length + (t.days.length === 1 ? ' day' : ' days') + ' · drag a stop to reorder or move it between days</p></div>'
+    +     '<p class="pg-sub">' + total + (total === 1 ? ' place' : ' places') + ' across ' + t.days.length + (t.days.length === 1 ? ' day' : ' days') + ' · drag a stop to reorder or move it between days</p>'
+    +     plTripDates(t) + '</div>'
     +   '<div class="pg-acts">'
     +     '<button class="pg-btn" id="shareTrip">Share</button>'
     +     '<a class="pg-btn" href="#/sheet/' + plEsc(t.id) + '">Day sheet</a>'
@@ -58,7 +59,46 @@ function renderTrip(id){
     +   '</div>'
     + '</div>';
 
-  /* What the trip actually costs, in miles, hours and dollars.
+  /* ---- travel dates ----
+
+   Collapsed to a single line until somebody clicks it, because most
+   of the time the dates are already set or not wanted and a pair of
+   empty date fields at the top of the page is just noise.
+
+   Two native date inputs rather than a custom picker: they get the
+   platform calendar, the right keyboard on a phone and the user's
+   own locale for free. */
+function plTripDates(t){
+  const label = (typeof tripDateLabel === 'function') ? tripDateLabel(t) : '';
+  const away  = (typeof tripDaysAway === 'function')  ? tripDaysAway(t)  : null;
+
+  let line;
+  if (label){
+    let extra = '';
+    if (away != null){
+      if (away > 1)       extra = ' \u00b7 ' + away + ' days away';
+      else if (away === 1) extra = ' \u00b7 tomorrow';
+      else if (away === 0) extra = ' \u00b7 today';
+    }
+    line = '<b>' + plEsc(label) + '</b>' + plEsc(extra);
+  } else {
+    line = '<span class="pl-dates-none">No dates set</span>';
+  }
+
+  return '<div class="pl-dates" id="plDates">'
+    + '<button type="button" class="pl-dates-toggle" id="plDatesToggle" aria-expanded="false">'
+    +   line + '<i>' + (label ? 'Change' : 'Add dates') + '</i>'
+    + '</button>'
+    + '<div class="pl-dates-edit" id="plDatesEdit" hidden>'
+    +   '<label>Leaving<input type="date" id="plStart" value="' + plEsc(t.start || '') + '"></label>'
+    +   '<label>Coming back<input type="date" id="plEnd" value="' + plEsc(t.end || '') + '"></label>'
+    +   '<button class="pg-btn pg-btn-go" id="plDatesSave">Save</button>'
+    +   (t.start || t.end ? '<button class="pg-btn" id="plDatesClear">Clear</button>' : '')
+    +   '<p class="pl-dates-msg" id="plDatesMsg"></p>'
+    + '</div></div>';
+}
+
+/* What the trip actually costs, in miles, hours and dollars.
      Filled in by wireTotals() once the router answers. */
   h += '<div class="pg-totals" id="pgTotals" hidden></div>';
 
@@ -154,8 +194,17 @@ function lastStopBefore(t, dayId){
 }
 
 function dayColumn(t, d){
+  /* Once a start date is set, each day carries its real calendar
+     date. That is most of the value of entering dates at all: it
+     turns "Day 3" into "Sat 4 Apr", which is what you actually
+     check against an opening time or a flight. */
+  const idx = t.days.indexOf(d);
+  const when = (typeof tripDayDateLabel === 'function' && idx >= 0)
+    ? tripDayDateLabel(t, idx) : '';
+
   let h = '<div class="pg-col" data-list="' + d.id + '" data-day-col="' + d.id + '">'
         + '<div class="pg-col-h"><span class="pg-col-t" contenteditable="true" data-day="' + d.id + '" spellcheck="false">' + plEsc(d.label) + '</span>'
+        + (when ? '<span class="pg-col-date">' + plEsc(when) + '</span>' : '')
         + (t.days.length > 1 ? '<button class="pg-x" data-delday="' + d.id + '" title="Remove day">&times;</button>' : '')
         + '<span class="pg-col-load" data-dayload="' + d.id + '"></span>'
         + '</div><div class="pg-drop" data-list="' + d.id + '">';
@@ -492,6 +541,38 @@ function mountPlanner(host, tripIdOrNull){
     nameEl.addEventListener('blur', () => tripRename(id, nameEl.textContent.trim()));
     nameEl.addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); nameEl.blur(); } });
   }
+  /* travel dates */
+  const dToggle = host.querySelector('#plDatesToggle');
+  const dEdit   = host.querySelector('#plDatesEdit');
+  if (dToggle && dEdit){
+    dToggle.onclick = () => {
+      const show = dEdit.hasAttribute('hidden');
+      if (show){ dEdit.removeAttribute('hidden'); } else { dEdit.setAttribute('hidden', ''); }
+      dToggle.setAttribute('aria-expanded', show ? 'true' : 'false');
+      if (show){ const f = host.querySelector('#plStart'); if (f) f.focus(); }
+    };
+  }
+  const dMsg = txt => {
+    const m = host.querySelector('#plDatesMsg');
+    if (m) m.textContent = txt || '';
+  };
+  const dSave = host.querySelector('#plDatesSave');
+  if (dSave) dSave.onclick = () => {
+    const a = (host.querySelector('#plStart') || {}).value || '';
+    const b = (host.querySelector('#plEnd') || {}).value || '';
+    const r = tripSetDates(id, a, b);
+    if (r && r.error) return dMsg(r.error);
+    dMsg('');
+    /* Redraw rather than patching the header by hand: the day
+       headings carry the dates too, and they all have to move. */
+    mountPlanner(host, id);
+  };
+  const dClear = host.querySelector('#plDatesClear');
+  if (dClear) dClear.onclick = () => {
+    tripSetDates(id, '', '');
+    mountPlanner(host, id);
+  };
+
   host.querySelectorAll('[data-day]').forEach(el => {
     el.addEventListener('blur', () => tripRenameDay(id, el.dataset.day, el.textContent.trim()));
     el.addEventListener('keydown', e => { if (e.key === 'Enter'){ e.preventDefault(); el.blur(); } });
